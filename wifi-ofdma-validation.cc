@@ -47,6 +47,7 @@
 #include "ns3/traffic-control-layer.h"
 #include "ns3/he-configuration.h"
 #include "ns3/wifi-acknowledgment.h"
+#include "ns3/trace-helper.h"
 
 
 #include <vector>
@@ -292,7 +293,7 @@ private:
   // double m_simulationTime{20}; // seconds
   double extrastoptime{5}; // Extra time simulator runs and then stops
   double m_simulationTime{5}; // seconds
-  uint32_t m_startInterval{10};
+  uint32_t m_startInterval{1};
   int m_na{5};
   std::string m_dlTraffic{"mu"};
   std::string m_ulTraffic{"mu"};
@@ -319,7 +320,7 @@ private:
   uint8_t m_channelNumber{36};
   WifiPhyBand m_band {WIFI_PHY_BAND_UNSPECIFIED};
   uint16_t m_guardInterval{800}; // GI in nanoseconds
-  bool m_enableObssPd{false};
+  bool m_enableObssPd{false};  // Changed this
   double m_obssPdThresholdBss{-99.0};
   double m_obssPdThresholdMinBss{-82.0};
   double m_obssPdThresholdMaxBss{-62.0};
@@ -627,7 +628,7 @@ WifiOfdmaExample::Config (int argc, char *argv[])
   std::string obssStandard = "11ax";
   std::string psdLimitRegulator = "FCC";
   std::string apDistance, apTheta;
-  // std::string apDistance = "5,10", apTheta="0,60";
+    // std::string apDistance = "5", apTheta="0";
 
   CommandLine cmd;
   cmd.AddValue ("verbose", "Whether to print additional output", m_verbose);
@@ -803,6 +804,7 @@ WifiOfdmaExample::Config (int argc, char *argv[])
                        << m_apThetas.size () << ") does not match the number of overlapping BSSes ("
                        << m_nObss << ")");
 
+  std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<'\n';
   std::cout << "Channel bw = " << m_channelWidth << " MHz" << std::endl
             << (m_heRate == "ideal" ? "Ideal rate manager" : "HE MCS = " + m_heRate) << std::endl
             << "Number of stations = " << m_nStations << std::endl
@@ -841,6 +843,7 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           flow.m_direction = Flow::DOWNLINK;
           flow.m_dstPort = dstPort++;
           NS_LOG_DEBUG ("Adding flow " << flow);
+          std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
           m_flows.push_back (flow);
         }
       if (m_ulTraffic != "None")
@@ -854,6 +857,7 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           flow.m_direction = Flow::UPLINK;
           flow.m_dstPort = dstPort++;
           NS_LOG_DEBUG ("Adding flow " << flow);
+          std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
           m_flows.push_back (flow);
         }
     }
@@ -924,6 +928,7 @@ void
 WifiOfdmaExample::Setup (void)
 {
   NS_LOG_FUNCTION (this);
+  std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Setup function called "<< '\n';
 
   Config::SetDefault ("ns3::WifiRemoteStationManager::RtsCtsThreshold",
                       m_enableRts ? StringValue ("0") : StringValue ("999999"));
@@ -1013,6 +1018,8 @@ WifiOfdmaExample::Setup (void)
       phy.Set ("RxSensitivity", DoubleValue (m_rxSensitivity));
 
       WifiHelper wifi;
+      // wifi.EnableLogContention(); 
+      // To enable contention log
       if (bss == 0 && m_verbose)
         {
           wifi.EnableLogComponents ();
@@ -1149,11 +1156,16 @@ WifiOfdmaExample::Setup (void)
               DynamicCast<WifiNetDevice> (apDevice.Get (0))->GetHeConfiguration ();
           heConfiguration->SetAttribute ("BssColor", UintegerValue (bss + 1));
         }
-
+//  PcapHelper pcapHelper;
+  // pcapHelper.
       if (m_enablePcap)
         {
-          phy.EnablePcap ("STA_pcap", staDevices);
-          phy.EnablePcap ("AP_pcap", apDevice);
+          // pcapHelper.EnablePcapAll ("STA_mac_pcap", staDevices);
+          // pcapHelper.EnablePcapAll ("AP_mac_pcap", apDevice);
+          //  pcapHelper.EnablePcap("abcd");
+      
+          phy.EnablePcap ("STA_phy_pcap", staDevices);
+          phy.EnablePcap ("AP_phy_pcap", apDevice);
         }
     }
 
@@ -1251,6 +1263,7 @@ WifiOfdmaExample::Setup (void)
     }
 
   // Setting mobility model
+  std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Setting mobility model"<< '\n';
   for (uint16_t bss = 0; bss < m_nObss + 1; bss++)
     {
       MobilityHelper mobility;
@@ -1434,10 +1447,11 @@ void
 WifiOfdmaExample::Run (void)
 {
   NS_LOG_FUNCTION (this);
+  std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Calling Run function"<< '\n';
 
   // Start the setup phase by having the first station associate with the AP
   Simulator::ScheduleNow (&WifiOfdmaExample::StartAssociation, this);
-
+  
   Simulator::Run ();
 }
 
@@ -1772,6 +1786,7 @@ WifiOfdmaExample::PrintResults (std::ostream &os)
 void
 WifiOfdmaExample::StartAssociation (void)
 {
+  std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Calling Start Association function"<< '\n';
   NS_LOG_FUNCTION (this << m_currentSta);
   NS_ASSERT (m_currentSta < m_nStations + m_nObss * m_nStationsPerObss);
 
@@ -1799,6 +1814,8 @@ WifiOfdmaExample::EstablishBaAgreement (Mac48Address bssid)
 {
   NS_LOG_FUNCTION (this << bssid << m_currentSta);
 
+  std::cout << "At time "<<Simulator::Now() <<" Calling EstablishBaAgreement function"<< '\n';
+
   // Now that the current station is associated with the AP, let's trigger the creation
   // of an entry in the ARP cache (of both the AP and the STA) and the establishment of
   // Block Ack agreements between the AP and the STA (and viceversa) for the relevant
@@ -1806,7 +1823,7 @@ WifiOfdmaExample::EstablishBaAgreement (Mac48Address bssid)
   uint16_t pingInterval = 50; // milliseconds
 
 
-  std::cout << "At time "<<Simulator::Now().GetMicroSeconds () << " Sending 4 ICMP echo requests to establish Block Ack Agreement" << '\n';
+  std::cout << "At time "<<Simulator::Now().GetSeconds() << " Sending 4 ICMP echo requests to establish Block Ack Agreement" << '\n';
 
   std::map<AcIndex, uint8_t> acTos = {{AC_BE, 0x00 /* CS0 */},
                                       {AC_BK, 0x28 /* AF11 */},
@@ -1846,6 +1863,7 @@ WifiOfdmaExample::EstablishBaAgreement (Mac48Address bssid)
       // ping.SetAttribute ("Tos", UintegerValue (ac.second));
       Simulator::Schedule (MilliSeconds (pingInterval * static_cast<uint16_t> (ac.first)),
                            addPingApp, ping, apNode);
+      std::cout<<"Call scheduled at  "<< MilliSeconds (pingInterval * static_cast<uint16_t> (ac.first))<< " "<<"\n";
     }
 
   // set the duration of the "On" interval to zero for all client applications so that,
@@ -1860,6 +1878,9 @@ WifiOfdmaExample::EstablishBaAgreement (Mac48Address bssid)
   int64_t startTime =
       ((Simulator::Now ().GetTimeStep () + 4 * slotUnits) / slotUnits + 1) * slotUnits;
   Time startDelay = TimeStep (startTime) - Simulator::Now ();
+
+  std::cout<<"1 slot time : "<<slotUnits<< " Start delay : "<<startDelay<<"\n";
+
   NS_ASSERT (startDelay.IsStrictlyPositive ());
 
   std::size_t i = 0;
@@ -1958,6 +1979,7 @@ void
 WifiOfdmaExample::StartClient (OnOffHelper client, std::size_t i, Ptr<Node> node)
 {
   NS_LOG_FUNCTION (this << node->GetId ());
+  std::cout << "At time "<<Simulator::Now() <<" Calling StartClient function"<< '\n';
 
   m_clientApps[i] = client.Install (node).Get (0);
   m_clientApps[i]->SetStopTime (
@@ -2896,7 +2918,7 @@ main (int argc, char *argv[])
   WifiOfdmaExample example;
   example.Config (argc, argv);
   example.Setup ();
-  std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Calling Run function"<< '\n';
+  
   std::cout << "Uplink Status(mu or su) " << example.getULStatus()<< "\n";
   example.Run ();
     
