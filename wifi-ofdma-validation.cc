@@ -120,6 +120,13 @@ public:
     std::multiset<T> m_samples;
   };
 
+  struct PacketsinFlow  // To keep track of packets in flow which dropped and which received
+  { 
+
+    std::multiset<std::pair<uint64_t /* UID */,bool>> m_samples;
+  };
+
+
   struct Flow
   {
     enum
@@ -139,6 +146,9 @@ public:
     double m_dataRate;        // b/s
     /* Measured end-to-end metrics */
     Stats<double> m_latency;
+    
+    PacketsinFlow packetsinFlow;
+    Stats<std::pair<uint64_t /* UID */,double> > appLatencies;
     uint64_t m_txBytes {0};
     uint64_t m_txPackets {0};
     uint64_t m_packetsRejectedBySocket{0};
@@ -178,6 +188,10 @@ public:
         }
   void Run (void);
   /**
+   * Print Packet Latencies. #Newly Added by Prajwal
+   */
+  void PrintPacketLatencies (std::ostream &os);
+    /**
    * Print results.
    */
   void PrintResults (std::ostream& os);
@@ -380,7 +394,7 @@ private:
   std::string m_dlAckSeqType{"ACK-SU-FORMAT"};
   uint16_t m_baBufferSize{256};
   std::string m_queueDisc{"default"};
-  bool m_enablePcap{false};
+  bool m_enablePcap{true};
   double m_warmup{0.5}; // duration of the warmup period (seconds)
   uint32_t m_tcpSegmentSize{1500}; // TCP maximum segment size (0 = use default)
   uint32_t m_tcpInitialCwnd{0}; // TCP initial congestion window size (segments, 0 = use default)
@@ -670,10 +684,13 @@ WifiOfdmaExample::Config (int argc, char *argv[])
       m_dlAckSeqType = "NO-OFDMA";
     }
   m_enableDlOfdma = (m_dlAckSeqType != "NO-OFDMA");
+  // m_enableDlOfdma = false;
   m_enableUlOfdma = m_ulTraffic == "mu";
+  // m_enableUlOfdma = false;
   m_enableBsrp = m_ulTraffic == "mu";
-  //m_enableBsrp = false;
+  // m_enableBsrp = false;
   m_forceDlOfdma = m_dlTraffic == "mu";
+  // m_forceDlOfdma = false;
   if (m_dlTraffic == "mu")
     {
       m_maxNRus = std::max (1, (int) m_nHeStations);
@@ -1559,6 +1576,48 @@ WifiOfdmaExample::PrintStats (std::vector<std::map<AcIndex, T>> v, FUNC select, 
 }
 
 void
+WifiOfdmaExample:: PrintPacketLatencies (std::ostream &os){
+   NS_LOG_FUNCTION (this);
+   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () << '\n';
+  os << "PER-FLOW per packet statistics" << std::endl << "************************" << std::endl;
+  for (std::size_t i = 0; i < m_flows.size (); i++)
+    {
+       os << "FLOW " << m_flows[i] << std::endl<< std::fixed << std::setprecision (3);
+        //  std::pair<uint64_t /* UID */,double> pktdata;
+      for(std::pair<uint64_t /* UID */,double> pkt:m_flows[i].appLatencies.m_samples){
+
+          os<<"Packet ID: "<< pkt.first<<" App layer Latency: "<<pkt.second << std::endl;
+      }
+        //  << static_cast<double> (m_flows[i].m_txPackets + m_flows[i].m_packetsRejectedBySocket -
+        //                          m_flows[i].m_rxPackets) /
+        //         (m_flows[i].m_txPackets + m_flows[i].m_packetsRejectedBySocket)
+        //  << std::endl
+        //  << "Dropped packets (app layer): " << m_flows[i].m_packetsRejectedBySocket << std::endl
+        //  << "Latency: " << m_flows[i].m_latency << std::endl
+        //  << std::endl;
+    }
+os<<"-------------------------------Dropped Packets-----------------------------"<<std::endl ;
+    for (std::size_t i = 0; i < m_flows.size (); i++)
+    {
+       os << "FLOW " << m_flows[i] << " Total dropped packets : "<< (m_flows[i].m_txPackets-m_flows[i].m_rxPackets) <<std::endl;
+        //  std::pair<uint64_t /* UID */,double> pktdata;
+         
+      for(auto pkt:m_flows[i].packetsinFlow.m_samples){
+          if(!pkt.second)
+          {os << "FLOW " << m_flows[i] <<"   Dropped Packet ID: "<< pkt.first<<std::endl;}
+      }
+        //  << static_cast<double> (m_flows[i].m_txPackets + m_flows[i].m_packetsRejectedBySocket -
+        //                          m_flows[i].m_rxPackets) /
+        //         (m_flows[i].m_txPackets + m_flows[i].m_packetsRejectedBySocket)
+        //  << std::endl
+        //  << "Dropped packets (app layer): " << m_flows[i].m_packetsRejectedBySocket << std::endl
+        //  << "Latency: " << m_flows[i].m_latency << std::endl
+        //  << std::endl;
+    }
+
+}
+
+void
 WifiOfdmaExample::PrintResults (std::ostream &os)
 {
   NS_LOG_FUNCTION (this);
@@ -1580,6 +1639,7 @@ WifiOfdmaExample::PrintResults (std::ostream &os)
          << "Dropped packets (app layer): " << m_flows[i].m_packetsRejectedBySocket << std::endl
          << "Latency: " << m_flows[i].m_latency << std::endl
          << std::endl;
+         
     }
 
   for (uint16_t bss = 0; bss < m_nObss; bss++)
@@ -2773,6 +2833,7 @@ WifiOfdmaExample::NotifyAppTx (std::size_t i, Ptr<const Packet> packet)
   prev_tx = Simulator::Now().GetMicroSeconds();
   m_flows[i].m_txBytes += packet->GetSize ();
   m_flows[i].m_txPackets++;
+
   bool inserted;
 
   if (m_flows[i].m_l4Proto == Flow::UDP)
@@ -2788,15 +2849,16 @@ WifiOfdmaExample::NotifyAppTx (std::size_t i, Ptr<const Packet> packet)
       NS_ABORT_MSG_IF (!inserted,
                        "Duplicate total bytes sent " << m_flows[i].m_txBytes << " with TCP?");
     }
+  if(inserted)m_flows[i].packetsinFlow.m_samples.insert({packet->GetUid(),false});
 }
 
 void
 WifiOfdmaExample::NotifyAppRx (std::size_t i, Ptr<const Packet> packet, const Address &address)
 {
   prev_rx = Simulator::Now().GetMicroSeconds();
-  std::cout <<"Delay of packet from App to App layer " << prev_rx - prev_tx << '\n';
+  // std::cout <<"Delay of packet from App to App layer " << prev_rx - prev_tx << '\n';
   m_flows[i].m_rxBytes += packet->GetSize ();
-
+  
   m_flows[i].m_rxPackets++;
 
   if (m_flows[i].m_l4Proto == Flow::UDP)
@@ -2810,7 +2872,14 @@ WifiOfdmaExample::NotifyAppRx (std::size_t i, Ptr<const Packet> packet, const Ad
         }
 
       m_flows[i].m_latency.AddSample ((Simulator::Now () - it->second).ToDouble (Time::MS));
+      m_flows[i].appLatencies.AddSample({packet->GetUid(),(Simulator::Now () - it->second).ToDouble (Time::MS)});
       m_flows[i].m_inFlightPackets.erase (it);
+      auto it1 = m_flows[i].packetsinFlow.m_samples.find({packet->GetUid (),false});
+       if (it1 != m_flows[i].packetsinFlow.m_samples.end ()){
+           m_flows[i].packetsinFlow.m_samples.erase({packet->GetUid (),false});
+              m_flows[i].packetsinFlow.m_samples.insert({packet->GetUid (),true});
+            
+       }
     }
   else
     {
@@ -2820,13 +2889,21 @@ WifiOfdmaExample::NotifyAppRx (std::size_t i, Ptr<const Packet> packet, const Ad
           if (it->first <= totalBytesReceived)
             {
               m_flows[i].m_latency.AddSample ((Simulator::Now () - it->second).ToDouble (Time::MS));
+               m_flows[i].appLatencies.AddSample({packet->GetUid(),(Simulator::Now () - it->second).ToDouble (Time::MS)});
               it = m_flows[i].m_inFlightPackets.erase (it);
+              auto it1 = m_flows[i].packetsinFlow.m_samples.find({packet->GetUid (),false});
+             if (it1 != m_flows[i].packetsinFlow.m_samples.end ()){
+                 m_flows[i].packetsinFlow.m_samples.erase({packet->GetUid (),false});
+              m_flows[i].packetsinFlow.m_samples.insert({packet->GetUid (),true});
+            
+             }
             }
           else
             {
               it++;
             }
         }
+        
     }
 }
 
@@ -2923,6 +3000,8 @@ main (int argc, char *argv[])
   example.Run ();
     
   example.PrintResults (std::cout);
+  example.PrintPacketLatencies (std::cout);
+  
       
   Simulator::Destroy ();
 
