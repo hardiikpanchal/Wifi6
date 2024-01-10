@@ -147,7 +147,7 @@ public:
     /* Measured end-to-end metrics */
     Stats<double> m_latency;
     
-    PacketsinFlow packetsinFlow;
+    PacketsinFlow packetsinFlow, packetsinFlow_mac;
     Stats<std::pair<uint64_t /* UID */,double> > appLatencies;
     uint64_t m_txBytes {0};
     uint64_t m_txPackets {0};
@@ -155,6 +155,9 @@ public:
     uint64_t m_rxBytes {0};
     uint64_t m_rxPackets {0};
     uint64_t m_prevRxBytes {0};
+    // 
+    uint64_t m_txPackets_mac{0};
+    uint64_t m_rxPackets_mac{0};
     /*
      * For UDP flows, map packet's UID to the time it was transmitted. For TCP flows,
      * map the total amount of bytes transmitted at the time a packet was sent to
@@ -1622,8 +1625,14 @@ WifiOfdmaExample:: PrintPacketLatencies (std::ostream &os){
 // os<<"-------------------------------Dropped Packets-----------------------------"<<std::endl ;
 uint32_t drop_count_total_UL = 0;
 uint32_t drop_count_total_DL = 0;
+uint32_t tx_total = 0;
+uint32_t rx_total = 0;
+
+uint32_t drop_count_total_mac = 0;
     for (std::size_t i = 0; i < m_flows.size (); i++)
     {
+      tx_total += m_flows[i].m_txPackets;
+      rx_total += m_flows[i].m_rxPackets;
       if(i % 2 == 0){
         drop_count_total_DL += (m_flows[i].m_txPackets-m_flows[i].m_rxPackets);
       }else{
@@ -1643,10 +1652,35 @@ uint32_t drop_count_total_DL = 0;
         //  << "Dropped packets (app layer): " << m_flows[i].m_packetsRejectedBySocket << std::endl
         //  << "Latency: " << m_flows[i].m_latency << std::endl
         //  << std::endl;
+
+      // if(i % 2 == 0){
+          
+
+      //   }else{
+
+      //   for(auto pkt:m_flows[0].packetsinFlow_mac.m_samples){
+      //     if(!pkt.second)
+      //     {drop_count_total_UL_mac++;}
+      //     }
+      // }
+
     }
+    for(auto pkt:m_flows[0].packetsinFlow_mac.m_samples){
+          if(!pkt.second)
+          {drop_count_total_mac++;}
+          }
+          
     os << "Total dropped DL Paxkets: " << drop_count_total_DL << '\n';
     os << "Total dropped UL Paxkets: " << drop_count_total_UL << '\n';
 
+    os << "Total dropped Paxkets at MAC(DL + UL): " << drop_count_total_mac << '\n';
+
+    os << "Total Transmitted Packets at MAC(DL + UL): " << m_flows[0].m_txPackets_mac << '\n';
+    os << "Total Received Packets at MAC(DL + UL): " << m_flows[0].m_rxPackets_mac << '\n';
+
+    os << "Total Transmitted Packets at App(DL + UL): " << tx_total << '\n';
+    os << "Total Received Packets at App(DL + UL): " << rx_total << '\n';
+    
 }
 
 void
@@ -1675,11 +1709,13 @@ WifiOfdmaExample::PrintResults (std::ostream &os)
       if(m_flows[i].m_direction == Flow::DOWNLINK){
         aggr_thr_dl += (m_flows[i].m_rxBytes * 8.) / (m_simulationTime * 1e6);
         aggr_lat_dl += avglat/double(count);
-        aggr_dl_pkt += (m_flows[i].m_rxBytes)/(1610);
+        // aggr_dl_pkt += (m_flows[i].m_rxBytes)/(1610);
+        aggr_dl_pkt += m_flows[i].m_rxPackets;
       }else{
         aggr_thr_ul += (m_flows[i].m_rxBytes * 8.) / (m_simulationTime * 1e6);
         aggr_lat_ul += avglat/double(count);
-        aggr_ul_pkt += (m_flows[i].m_rxBytes)/(1610);
+        // aggr_ul_pkt += (m_flows[i].m_rxBytes)/(1610);
+        aggr_ul_pkt += m_flows[i].m_rxPackets;
       }
       
       os << std::fixed << std::setprecision (3)
@@ -3037,14 +3073,21 @@ WifiOfdmaExample::NotifyAppRx (std::size_t i, Ptr<const Packet> packet, const Ad
 void
 WifiOfdmaExample::NotifyEdcaEnqueue (Ptr<const WifiMacQueueItem> item)
 {
+  m_flows[0].packetsinFlow_mac.m_samples.insert({item->GetPacket()->GetUid(),false});
+ 
   if (!item->GetHeader ().IsQosData ())
     {
       return;
     }
   // init a map entry if the packet's UID is not present
-  auto mapIt =
+  auto temp = 
+ 
       m_inFlightPacketMap.insert ({item->GetPacket ()->GetUid (), std::list<InFlightPacketInfo> ()})
-          .first;
+          ;
+
+    auto mapIt=temp.first;
+  if(temp.second) m_flows[0].m_txPackets_mac++;
+
 
   InFlightPacketInfo info;
   info.m_srcAddress = item->GetHeader ().GetAddr2 ();
@@ -3059,6 +3102,13 @@ WifiOfdmaExample::NotifyEdcaEnqueue (Ptr<const WifiMacQueueItem> item)
 void
 WifiOfdmaExample::NotifyMacForwardUp (Ptr<const Packet> p)
 {
+   
+    auto it1 = m_flows[0].packetsinFlow_mac.m_samples.find({p->GetUid (),false});
+     if (it1 != m_flows[0].packetsinFlow_mac.m_samples.end ()){
+         m_flows[0].packetsinFlow_mac.m_samples.erase({p->GetUid (),false});
+            m_flows[0].packetsinFlow_mac.m_samples.insert({p->GetUid (),true});
+     } 
+
   auto mapIt = m_inFlightPacketMap.find (p->GetUid ());
   if (mapIt == m_inFlightPacketMap.end ())
     {
@@ -3080,6 +3130,7 @@ WifiOfdmaExample::NotifyMacForwardUp (Ptr<const Packet> p)
     {
       return;
     }
+ m_flows[0].m_rxPackets_mac++;
 
   std::vector<std::map<AcIndex, PairwisePerAcStats>>::iterator vecIt;
 
