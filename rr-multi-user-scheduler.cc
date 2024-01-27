@@ -35,6 +35,10 @@ namespace ns3 {
 NS_LOG_COMPONENT_DEFINE ("RrMultiUserScheduler");
 
 NS_OBJECT_ENSURE_REGISTERED (RrMultiUserScheduler);
+uint32_t ru_26 = 0;
+uint32_t ru_52 = 0;
+uint32_t ru_106 = 0;
+uint32_t ru_242 = 0;
 
 TypeId
 RrMultiUserScheduler::GetTypeId (void)
@@ -315,11 +319,16 @@ RrMultiUserScheduler::TrySendingBasicTf (void)
   // my code end
   // Sri Prakash
 
+uint8_t q_array[3];
 
+  int i = 0;
   for (const auto& candidate : m_ul_candidates)
   //for (const auto& candidate : m_candidates)
     {
       uint8_t queueSize = m_apMac->GetMaxBufferStatus (candidate.first->address);
+      q_array[i] = queueSize;
+      i++;
+
       std::cout << "Buffer status of station " << candidate.first->address << " is " << +queueSize << "\n";
       if (queueSize == 255)
         {
@@ -337,13 +346,34 @@ RrMultiUserScheduler::TrySendingBasicTf (void)
           maxBufferSize = std::max (maxBufferSize, static_cast<uint32_t> (queueSize * 256));
         }
       // serve the station if its queue size is not null
-      if (queueSize > 0)
+      if (queueSize > 0 && ulCandidates.size() < 9 && m_enableBsrp)
         {
           ulCandidates.emplace (queueSize, candidate);
         }
+
+        if(!m_enableBsrp){
+          ulCandidates.emplace (queueSize, candidate);
+        }
+
+
     }    
 
   // if the maximum buffer size is 0, skip UL OFDMA and proceed with trying DL OFDMA
+
+  uint8_t min_queue;
+  min_queue = std::min(q_array[0], q_array[1]);
+  min_queue = std::min(min_queue, q_array[2]);
+
+  for(int i = 0; i < 3; i++){
+    if(min_queue == q_array[i]){
+      ulCandidates.erase(min_queue);
+      break;
+    }
+    
+  }
+
+
+
   if (maxBufferSize > 0)
     {
       NS_ASSERT (!ulCandidates.empty ());
@@ -364,15 +394,35 @@ RrMultiUserScheduler::TrySendingBasicTf (void)
           nCentral26TonesRus = std::min (ulCandidates.size () - count, nCentral26TonesRus);
         }
 
+      
+      if(ruType == HeRu::RU_106_TONE){
+        ru_106++;
+      }else if(ruType == HeRu::RU_52_TONE){
+        ru_52++;
+      }else if(ruType == HeRu::RU_242_TONE){
+        ru_242++;
+      }else if(ruType == HeRu::RU_26_TONE){
+        ru_26++;
+      }
+
 
       WifiTxVector txVector;
       txVector.SetPreambleType (WIFI_PREAMBLE_HE_TB);
+      std::cout << "m_ul_candidates size: " << m_ul_candidates.size() << '\n';
       std::cout << "UL candidates size: " << ulCandidates.size() << '\n';
       std::cout << "Count: " << count << '\n';
       std::cout << "ncentral26toneRUs: " << nCentral26TonesRus << '\n';
       auto candidateIt = ulCandidates.begin ();
       count = std::min(count, ulCandidates.size());
       std::cout << "Updated Count: " << count << '\n';
+
+      std::cout << "242 tone RU count: " << ru_242 << "\n";
+
+      std::cout << "106 tone RU count: " << ru_106 << "\n";
+
+      std::cout << "52 tone RU count: " << ru_52 << "\n";
+
+      std::cout << "26 tone RU count: " << ru_52 << "\n";
 
       if (GetLastTxFormat () == DL_MU_TX)
         {
@@ -603,7 +653,10 @@ RrMultiUserScheduler::TrySendingDlMuPpdu (void)
   std::size_t count = std::min (static_cast<std::size_t> (m_nStations), m_staList[primaryAc].size ());
   std::size_t nCentral26TonesRus;
   HeRu::RuType ruType;
-  //std::cout<<count<<" Printing count \n";
+  std::cout<<count<<" Printing count \n";
+  std::size_t limit = 9;
+  count = std::min(count, limit);
+
   if (m_schedulerLogic == "Standard")
     {
       ruType = HeRu::GetEqualSizedRusForStations (m_apMac->GetWifiPhy ()->GetChannelWidth (), count, nCentral26TonesRus);
@@ -669,6 +722,7 @@ RrMultiUserScheduler::TrySendingDlMuPpdu (void)
 
  auto staIt = m_staList[primaryAc].begin ();
   NS_LOG_DEBUG ("m_nStations: " << unsigned(m_nStations) << ", count: " << count << ", m_staList: " << m_staList[primaryAc].size());
+  std::cout << "m_nStations: " << unsigned(m_nStations) << ", count: " << count << ", m_staList: " << m_staList[primaryAc].size() << '\n';
   while (staIt != m_staList[primaryAc].end ()
          && m_candidates.size () < std::min (static_cast<std::size_t> (m_nStations), count + nCentral26TonesRus))
     {
