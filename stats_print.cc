@@ -333,7 +333,7 @@ private:
   //enable ofdma
   bool m_enableUlOfdma{true};
   bool m_enableTxopSharing{false};
-  bool m_enableBsrp{false};
+  bool m_enableBsrp{false};  
   bool m_useCentral26TonesRus {false};
   uint32_t m_ulPsduSize{2000}; // bytes
   uint16_t m_channelWidth{20}; // channel bandwidth (MHz)
@@ -410,10 +410,10 @@ private:
   bool m_verbose{false};
   uint16_t m_nIntervals{20}; // number of intervals in which the simulation time is divided
   uint16_t m_elapsedIntervals{0};
-  std::string m_scheduler = "bellalta";
+  std::string m_scheduler = "rr";
 
   // rr - full bw usage(no bw waste)
-  // bellalta - maximizes STA(there can be bw waste)
+  // bellalta - maximizes STA(there can be bw waste) equal split
 
   int m_frameSize{1500}; // Size of APP layer packets in bytes
   std::string m_ssidPrefix{"network-"};
@@ -701,6 +701,8 @@ WifiOfdmaExample::Config (int argc, char *argv[])
   m_enableDlOfdma = (m_dlAckSeqType != "NO-OFDMA");
 
   m_enableUlOfdma = m_ulTraffic == "mu";
+
+  // m_enableUlOfdma = false;
 
   // m_enableBsrp = m_ulTraffic == "mu";
 
@@ -1208,7 +1210,7 @@ WifiOfdmaExample::Setup (void)
           //  pcapHelper.EnablePcap("abcd");
       
           // phy.EnablePcap ("STA_phy_pcap", staDevices);
-          phy.EnablePcap ("AP_phy_pcap", apDevice);
+          phy.EnablePcap ("4_AP_phy_pcap", apDevice);
         }
     }
 
