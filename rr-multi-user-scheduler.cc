@@ -39,6 +39,7 @@ uint32_t ru_26 = 0;
 uint32_t ru_52 = 0;
 uint32_t ru_106 = 0;
 uint32_t ru_242 = 0;
+uint32_t UL_cycle_count = 0;
 
 TypeId
 RrMultiUserScheduler::GetTypeId (void)
@@ -319,15 +320,15 @@ RrMultiUserScheduler::TrySendingBasicTf (void)
   // my code end
   // Sri Prakash
 
-uint8_t q_array[3];
+std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_array;
 
-  int i = 0;
+
   for (const auto& candidate : m_ul_candidates)
   //for (const auto& candidate : m_candidates)
     {
       uint8_t queueSize = m_apMac->GetMaxBufferStatus (candidate.first->address);
-      q_array[i] = queueSize;
-      i++;
+      // q_array.push_back({queueSize, candidate});
+      // i++;
 
       std::cout << "Buffer status of station " << candidate.first->address << " is " << +queueSize << "\n";
       if (queueSize == 255)
@@ -348,39 +349,57 @@ uint8_t q_array[3];
       // serve the station if its queue size is not null
       if (queueSize > 0 && ulCandidates.size() < 9 && m_enableBsrp)
         {
-          ulCandidates.emplace (queueSize, candidate);
+          ulCandidates.emplace (queueSize, candidate); //multimap already puts them in sorted order(decreasing queue size)
         }
 
         if(!m_enableBsrp){
-          ulCandidates.emplace (queueSize, candidate);
+          uint8_t random_queue = (rand() % 20) + 1;
+          std::cout << "random queue of station: "<< candidate.first->address << " is :" << int(random_queue)  <<'\n';
+          ulCandidates.emplace (random_queue, candidate); //Giving equal size when no bsrp to give fair allocation
         }
-
 
     }    
 
   // if the maximum buffer size is 0, skip UL OFDMA and proceed with trying DL OFDMA
 
-  uint8_t min_queue;
-  min_queue = std::min(q_array[0], q_array[1]);
-  min_queue = std::min(min_queue, q_array[2]);
-
-  for(int i = 0; i < 3; i++){
-    if(min_queue == q_array[i]){
-      ulCandidates.erase(min_queue);
-      break;
-    }
-    
-  }
-
-
-
   if (maxBufferSize > 0)
     {
       NS_ASSERT (!ulCandidates.empty ());
+      UL_cycle_count++;
+      std::cout << "UL Cycle count: "<<UL_cycle_count << '\n';
       std::size_t count = ulCandidates.size();
+      // std::size_t count = std::fmin(2, ulCandidates.size());
       std::size_t nCentral26TonesRus;
+
+      bool ul_scheduler;
+      // if(m_schedulerLogic == "Bellalta"){
+      //   ul_scheduler = false;
+      // }else{
+      //   ul_scheduler = true;
+      // }
+
+      // std::string m_schedulerLogic_UL = "rr"; // Full bw
+      std::string m_schedulerLogic_UL = "Bellalta"; // equal split
+      
+
+      if(m_schedulerLogic_UL == "Bellalta"){
+        ul_scheduler = false;
+      }else{
+        ul_scheduler = true;
+      }
+
+      if(ulCandidates.size() > 9){
+        ul_scheduler = true;
+      }
+
+
+      std::cout<< "DL scheduler logic: " << m_schedulerLogic <<'\n';
+      std::cout<< "UL scheduler logic: " << m_schedulerLogic_UL <<'\n'; 
+      //standard == rr
+      //
+
       HeRu::RuType ruType = HeRu::GetEqualSizedRusForStations (m_apMac->GetWifiPhy ()->GetChannelWidth (),
-                                                               count, nCentral26TonesRus, false);
+                                                               count, nCentral26TonesRus, ul_scheduler);
 
       // False: Equal split
       // True: Full BW
@@ -394,18 +413,6 @@ uint8_t q_array[3];
           nCentral26TonesRus = std::min (ulCandidates.size () - count, nCentral26TonesRus);
         }
 
-      
-      if(ruType == HeRu::RU_106_TONE){
-        ru_106++;
-      }else if(ruType == HeRu::RU_52_TONE){
-        ru_52++;
-      }else if(ruType == HeRu::RU_242_TONE){
-        ru_242++;
-      }else if(ruType == HeRu::RU_26_TONE){
-        ru_26++;
-      }
-
-
       WifiTxVector txVector;
       txVector.SetPreambleType (WIFI_PREAMBLE_HE_TB);
       std::cout << "m_ul_candidates size: " << m_ul_candidates.size() << '\n';
@@ -413,31 +420,38 @@ uint8_t q_array[3];
       std::cout << "Count: " << count << '\n';
       std::cout << "ncentral26toneRUs: " << nCentral26TonesRus << '\n';
       auto candidateIt = ulCandidates.begin ();
-      count = std::min(count, ulCandidates.size());
-      std::cout << "Updated Count: " << count << '\n';
 
-      std::cout << "242 tone RU count: " << ru_242 << "\n";
+      count = std::min(count, ulCandidates.size()); //later correction
+      std::cout << "Updated Count variable: " << count << '\n';
 
-      std::cout << "106 tone RU count: " << ru_106 << "\n";
 
-      std::cout << "52 tone RU count: " << ru_52 << "\n";
-
-      std::cout << "26 tone RU count: " << ru_52 << "\n";
-
-      if (GetLastTxFormat () == DL_MU_TX)
+      if (GetLastTxFormat () == DL_MU_TX)  //When BSRP is OFF
         {
           txVector.SetChannelWidth (GetDlMuInfo ().txParams.m_txVector.GetChannelWidth ());
           txVector.SetGuardInterval (CtrlTriggerHeader ().GetGuardInterval ());
 
           for (std::size_t i = 0; i < count + nCentral26TonesRus; i++)
             {
-              std::cout << "hardik1" << '\n';
+
+              std::cout << "hardik1: BSRP OFF" << '\n';
               std::cout << "UL candidates size inside loop: " << ulCandidates.size() << '\n';
               // if(candidateIt != ulCandidates.end ()){
               //   break;
               // }
               NS_ASSERT (candidateIt != ulCandidates.end ());
               uint16_t staId = candidateIt->second.first->aid;
+              std::cout << candidateIt->second.first->address<<" "<<ruType<< '\n';
+              
+              if(ruType == HeRu::RU_106_TONE){
+                ru_106++;
+              }else if(ruType == HeRu::RU_52_TONE){
+                ru_52++;
+              }else if(ruType == HeRu::RU_242_TONE){
+                ru_242++;
+              }else if(ruType == HeRu::RU_26_TONE){
+                ru_26++;
+              }
+
               // AssignRuIndices will be called below to set RuSpec              
               txVector.SetHeMuUserInfo (staId,   
                                         {{false, (i < count ? ruType : HeRu::RU_26_TONE), 1},    
@@ -448,7 +462,7 @@ uint8_t q_array[3];
               candidateIt++;
             }
         }
-      else
+      else // when BSRP is ON
         {
           CtrlTriggerHeader trigger;
           GetUlMuInfo ().trigger->GetPacket ()->PeekHeader (trigger);
@@ -458,15 +472,27 @@ uint8_t q_array[3];
 
           for (std::size_t i = 0; i < count + nCentral26TonesRus; i++)
             {
-              std::cout << "hardik2" << '\n';
+              std::cout << "hardik2: BSRP ON" << '\n';
+            
               // if(candidateIt != ulCandidates.end ()){
               //   break;
               // }
               NS_ASSERT (candidateIt != ulCandidates.end ());
               uint16_t staId = candidateIt->second.first->aid;
-             // auto userInfoIt = trigger.FindUserInfoWithAid (staId);
+              // auto userInfoIt = trigger.FindUserInfoWithAid (staId);
               //NS_ASSERT (userInfoIt != trigger.end ());
               // AssignRuIndices will be called below to set RuSpec
+              std::cout << candidateIt->second.first->address<<" "<<ruType<< '\n';
+              if(ruType == HeRu::RU_106_TONE){
+                ru_106++;
+              }else if(ruType == HeRu::RU_52_TONE){
+                ru_52++;
+              }else if(ruType == HeRu::RU_242_TONE){
+                ru_242++;
+              }else if(ruType == HeRu::RU_26_TONE){
+                ru_26++;
+              }
+
               txVector.SetHeMuUserInfo (staId,
                                         {{false, (i < count ? ruType : HeRu::RU_26_TONE), 1},
                                         // HePhy::GetHeMcs (userInfoIt->GetUlMcs ()),
@@ -476,6 +502,15 @@ uint8_t q_array[3];
               candidateIt++;
             }    // Sri Prakash
         }
+
+      
+      std::cout << "242 tone RU count: " << ru_242 << "\n";
+
+      std::cout << "106 tone RU count: " << ru_106 << "\n";
+
+      std::cout << "52 tone RU count: " << ru_52 << "\n";
+
+      std::cout << "26 tone RU count: " << ru_26 << "\n";
 
       // remove candidates that will not be served
       ulCandidates.erase (candidateIt, ulCandidates.end ());
@@ -790,7 +825,7 @@ RrMultiUserScheduler::TrySendingDlMuPpdu (void)
       staIt++;
     } 
     //std::cout << "Try Sending DL MU PPDu called Candidates available to be scheduled for DL: " << m_candidates.size() << '\n';
-std::cout<<"DL All stations size"<<m_candidates.size()<<" Total stations: "<<m_nStations<<"\n";
+std::cout<<"DL All stations size"<<m_candidates.size()<<" Total stations: "<<int(m_nStations)<<"\n";
   if (m_candidates.empty ())
     {
       if (m_forceDlOfdma)
@@ -829,14 +864,14 @@ RrMultiUserScheduler::ComputeDlMuInfo (void)
     {
       ruType = HeRu::GetEqualSizedRusForStations (bw, nRusAssigned, nCentral26TonesRus);
       std::cout <<  "At time "<<Simulator::Now().GetMicroSeconds()<< "\n";
-      std::cout << "Using the standard scheduler(full bw(no bw waste)), trying to allocate " << m_candidates.size() << " STAs" << std::endl;
+      std::cout << "Using the standard scheduler(full bw(no bw waste)) for DL, trying to allocate " << m_candidates.size() << " STAs" << std::endl;
       // std::cout << "Decided to use RUs of type " << ruType << std::endl;
     }
   else
     {
       ruType = HeRu::GetEqualSizedRusForStations (bw, nRusAssigned, nCentral26TonesRus, false);
       std::cout <<  "At time "<<Simulator::Now().GetMicroSeconds()<< "\n";
-      std::cout << "Using the bellalta (equal split(bw waste)) scheduler, trying to allocate " << m_candidates.size() << " STAs" << std::endl;
+      std::cout << "Using the bellalta (equal split(bw waste)) scheduler for DL, trying to allocate " << m_candidates.size() << " STAs" << std::endl;
       // std::cout << "Decided to use RUs of type " << ruType << std::endl;
     }
 
