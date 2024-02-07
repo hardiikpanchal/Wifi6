@@ -37,10 +37,12 @@ NS_LOG_COMPONENT_DEFINE ("RrMultiUserScheduler");
 NS_OBJECT_ENSURE_REGISTERED (RrMultiUserScheduler);
 uint32_t ru_26 = 0;
 uint32_t ru_52 = 0;
+int formatcnt=0;
 uint32_t ru_106 = 0;
 uint32_t ru_242 = 0;
 uint32_t UL_cycle_count = 0;
-
+ uint64_t Notxcnt=0,DLtxcnt=0,ULtxcnt=0;
+ bool startThrougputcalc = false;
 TypeId
 RrMultiUserScheduler::GetTypeId (void)
 {
@@ -136,7 +138,11 @@ RrMultiUserScheduler::DoInitialize (void)
  
   MultiUserScheduler::DoInitialize ();
 }
+int count=10;
 
+bool bsrp_limit = false;
+bool dl_limit=false;
+int txcnt=0;
 void
 RrMultiUserScheduler::DoDispose (void)
 {
@@ -152,13 +158,22 @@ RrMultiUserScheduler::DoDispose (void)
   m_apMac->TraceDisconnectWithoutContext ("DeAssociatedSta",
                                           MakeCallback (&RrMultiUserScheduler::NotifyStationDeassociated, this));
   MultiUserScheduler::DoDispose ();
+  std::cout<<"No Transmission count"<< Notxcnt<<"\n";
+  std::cout<<"DL Transmission count"<< DLtxcnt<<"\n";
+   std::cout<<"UL Transmission count"<< ULtxcnt<<"\n";
+  std::cout<<"Select Tx called count"<< formatcnt<<"\n";
+  std::cout<<"Select Tx called damn count"<< txcnt<<"\n";
+  
+  
 }
-int count=10;
-bool bsrp_limit = false;
+int dlppducalledinselecttx = 0;
+int dlppducalledatendselecttx = 0;
 MultiUserScheduler::TxFormat
 RrMultiUserScheduler::SelectTxFormat (void)
 {
-  
+  formatcnt++;
+  if(GetLastTxFormat()!=NO_TX)txcnt++;
+
   NS_LOG_FUNCTION (this);
   std::cout << "At time " << Simulator::Now().GetMicroSeconds () <<" SelectTxFormat function called for" << (GetLastTxFormat()==DL_MU_TX ? "DL":"UL") <<'\n';
   
@@ -174,6 +189,7 @@ RrMultiUserScheduler::SelectTxFormat (void)
       }
 
       }
+     
       else{
         return TrySendingBsrpTf ();
       }
@@ -183,12 +199,33 @@ RrMultiUserScheduler::SelectTxFormat (void)
                           || m_ulTriggerType == TriggerFrameType::BSRP_TRIGGER))
     {
       TxFormat txFormat = TrySendingBasicTf ();
-
+std::cout << "At time " << Simulator::Now().GetMicroSeconds () <<" SelectTxFormat function called again" << (GetLastTxFormat()==DL_MU_TX ? "DL":"UL") <<'\n';
+  
       if (txFormat != DL_MU_TX)
         {
           return txFormat;
         }
     }
+    
+    if(txcnt<=200 || txcnt%10000==0){
+      dlppducalledinselecttx++;
+      std::cout <<"DL ppdu called inside selecttx" <<"\n";
+    
+      return TrySendingDlMuPpdu ();
+    }
+    else {
+      if(m_enableBsrp){
+        return TrySendingBsrpTf();
+      } 
+      else{
+        return TrySendingBasicTf();
+      }
+
+    }
+
+
+    dlppducalledatendselecttx++;
+    std::cout <<"DL ppdu return at the end of selecttx" <<"\n";
     return TrySendingDlMuPpdu ();
 }
 
@@ -231,6 +268,7 @@ RrMultiUserScheduler::TrySendingBsrpTf (void)
       // this way, no transmission will occur now and the next time we will
       // try again sending a BSRP Trigger Frame.
       NS_LOG_DEBUG ("Remaining TXOP duration is not enough for BSRP TF exchange");
+      Notxcnt++;
       return NO_TX;
     }
 
@@ -258,6 +296,7 @@ RrMultiUserScheduler::TrySendingBsrpTf (void)
           > m_availableTime)
         {
           NS_LOG_DEBUG ("Remaining TXOP duration is not enough for BSRP TF exchange");
+          Notxcnt++;
           return NO_TX;
         }
     }
@@ -275,8 +314,9 @@ RrMultiUserScheduler::TrySendingBsrpTf (void)
 
   m_ulTriggerType = TriggerFrameType::BSRP_TRIGGER;
   m_tbPpduDuration = qosNullTxDuration;
-
+//  ULtxcnt++;
   return UL_MU_TX;
+ 
 }
 
 int ul_count = 10;
@@ -331,6 +371,7 @@ std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_arra
       // i++;
 
       std::cout << "Buffer status of station " << candidate.first->address << " is " << +queueSize << "\n";
+      //std::cout<<"PSDU size"<<m_ulPsduSize<<"\n";
       if (queueSize == 255)
         {
           NS_LOG_DEBUG ("Buffer status of station " << candidate.first->address << " is unknown");          
@@ -355,6 +396,7 @@ std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_arra
         if(!m_enableBsrp){
           uint8_t random_queue = (rand() % 20) + 1;
           std::cout << "random queue of station: "<< candidate.first->address << " is :" << int(random_queue)  <<'\n';
+          maxBufferSize = std::max(maxBufferSize, static_cast<uint32_t> (random_queue * 256));
           ulCandidates.emplace (random_queue, candidate); //Giving equal size when no bsrp to give fair allocation
         }
 
@@ -378,8 +420,8 @@ std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_arra
       //   ul_scheduler = true;
       // }
 
-      // std::string m_schedulerLogic_UL = "rr"; // Full bw
-      std::string m_schedulerLogic_UL = "Bellalta"; // equal split
+      std::string m_schedulerLogic_UL = "rr"; // Full bw
+      // std::string m_schedulerLogic_UL = "Bellalta"; // equal split
       
 
       if(m_schedulerLogic_UL == "Bellalta"){
@@ -433,7 +475,7 @@ std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_arra
           for (std::size_t i = 0; i < count + nCentral26TonesRus; i++)
             {
 
-              std::cout << "hardik1: BSRP OFF" << '\n';
+              std::cout << "hardik1: Last DL/bsrp off" << '\n';
               std::cout << "UL candidates size inside loop: " << ulCandidates.size() << '\n';
               // if(candidateIt != ulCandidates.end ()){
               //   break;
@@ -472,7 +514,7 @@ std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_arra
 
           for (std::size_t i = 0; i < count + nCentral26TonesRus; i++)
             {
-              std::cout << "hardik2: BSRP ON" << '\n';
+              std::cout << "hardik2: Last UL/bsrp on" << '\n';
             
               // if(candidateIt != ulCandidates.end ()){
               //   break;
@@ -549,6 +591,7 @@ std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_arra
           // this way, no transmission will occur now and the next time we will
           // try again performing an UL OFDMA transmission.
           NS_LOG_DEBUG ("Remaining TXOP duration is not enough for UL MU exchange");
+          Notxcnt++;
           return NO_TX;
         }
 
@@ -567,6 +610,8 @@ std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_arra
           if (maxDuration.IsNegative ())
             {
               NS_LOG_DEBUG ("Remaining TXOP duration is not enough for UL MU exchange");
+              Notxcnt++;
+              std::cout<<"Remaining TXOP duration is not enough for UL MU exchange\n";
               return NO_TX;
             }
         }
@@ -605,6 +650,9 @@ std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_arra
               // no transmission will occur now and the next time we will try again
               // performing an UL OFDMA transmission.
               NS_LOG_DEBUG ("Available time " << maxDuration.As (Time::MS) << " is too short");
+              std::cout<<"Available time " << maxDuration.As (Time::MS) << " is too short\n";
+              Notxcnt++;
+              std::cout<< "At time "<<Simulator::Now().GetMicroSeconds()<<"NO TX heyy called\n";
               return NO_TX;
             }
         }
@@ -627,7 +675,7 @@ std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_arra
 
       m_ulTriggerType = TriggerFrameType::BASIC_TRIGGER;
       m_tbPpduDuration = maxDuration;
-
+      ULtxcnt++;
       std::cout << "UL_MU_TX" << '\n';
       return UL_MU_TX;
 
@@ -635,6 +683,8 @@ std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_arra
     // }
     // std::cout<< "At time "<<Simulator::Now().GetMicroSeconds()<<" Doing DL since max Buffer size of stations is empty\n";
   std::cout << "DL_MU_TX" << '\n';
+  DLtxcnt++;
+  std::cout << "DL when UL has no data"<<"\n";
   return DL_MU_TX;
 }
 
@@ -688,6 +738,9 @@ RrMultiUserScheduler::TrySendingDlMuPpdu (void)
   std::size_t count = std::min (static_cast<std::size_t> (m_nStations), m_staList[primaryAc].size ());
   std::size_t nCentral26TonesRus;
   HeRu::RuType ruType;
+   std::cout<<count<<"TrySendingDlMuPpdu called \n";
+
+
   std::cout<<count<<" Printing count \n";
   std::size_t limit = 9;
   count = std::min(count, limit);
@@ -831,12 +884,15 @@ std::cout<<"DL All stations size"<<m_candidates.size()<<" Total stations: "<<int
       if (m_forceDlOfdma)
         {
           NS_LOG_DEBUG ("The AP does not have suitable frames to transmit: return NO_TX");
+          Notxcnt++;
+          std::cout<<"AP has no data to send hui";
           return NO_TX;
         }
       NS_LOG_DEBUG ("The AP does not have suitable frames to transmit: return SU_TX");
       return SU_TX;
     }
-
+  DLtxcnt++;
+  std::cout << "DL in dlmuppdu "<< "\n";
   return TxFormat::DL_MU_TX;
 }
 
