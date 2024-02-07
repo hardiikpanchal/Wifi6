@@ -146,7 +146,7 @@ public:
     double m_dataRate;        // b/s
     /* Measured end-to-end metrics */
     Stats<double> m_latency;
-    
+   
     PacketsinFlow packetsinFlow, packetsinFlow_mac;
     Stats<std::pair<uint64_t /* UID */,double> > appLatencies;
     uint64_t m_txBytes {0};
@@ -312,7 +312,7 @@ private:
   // double m_simulationTime{20}; // seconds
 //   bool graph_stats{true}; // If true we are simulating to gather data for plots
   double extrastoptime{100}; // Extra time simulator runs and then stops
-  double m_simulationTime{8}; // seconds
+  double m_simulationTime{4}; // seconds
   uint32_t m_startInterval{1};
   int m_na{5};
   std::string m_dlTraffic{"mu"};
@@ -332,8 +332,13 @@ private:
   bool m_forceDlOfdma{true};
   //enable ofdma
   bool m_enableUlOfdma{true};
+  bool startThroughputcalc{false};
   bool m_enableTxopSharing{false};
   bool m_enableBsrp{false};  
+   double prevTime=0,currTime;
+ 
+   uint64_t recvPackets=0;
+  
   bool m_useCentral26TonesRus {false};
   uint32_t m_ulPsduSize{2000}; // bytes
   uint16_t m_channelWidth{20}; // channel bandwidth (MHz)
@@ -434,6 +439,7 @@ private:
   std::vector<double> m_clientApps_onTime_Info;
   std::vector<ApplicationContainer> m_obssClientApps;
   std::vector<Flow> m_flows;
+  std::vector<double> Throughputs;
 
   std::vector<uint64_t> m_obssDlRxStart, m_obssDlRxStop;
   std::vector<uint64_t> m_obssUlRxStart, m_obssUlRxStop;
@@ -1724,7 +1730,14 @@ uint64_t rx_bytes_mac = 0;
 
     // os << "Total dropped bytes at App(DL + UL): " << (tx_bytes_app_dl - rx_bytes_app_dl) + (tx_bytes_app_ul - rx_bytes_app_ul)<< '\n';
     os << "Total dropped bytes at MAC(DL + UL): " << tx_bytes_mac - rx_bytes_mac << '\n';
+  for(auto thru:Throughputs){
+os << "Throughput per 1000 packets " << thru << '\n';
+
     
+  }
+
+  os << " Last Packet Received at (ms) " << prev_rx << '\n';
+     
 }
 
 void
@@ -3089,6 +3102,10 @@ WifiOfdmaExample::NotifyDropAfterDequeue (std::size_t nodeId, AcIndex ac,
 void
 WifiOfdmaExample::NotifyAppTx (std::size_t i, Ptr<const Packet> packet)
 {
+  if(!startThroughputcalc){startThroughputcalc=true;
+  currTime = Simulator::Now().GetMilliSeconds();
+  }
+
   prev_tx = Simulator::Now().GetMicroSeconds();
   m_flows[i].m_txBytes += packet->GetSize ();
   // m_flows[i].m_txPackets++;
@@ -3124,7 +3141,18 @@ WifiOfdmaExample::NotifyAppRx (std::size_t i, Ptr<const Packet> packet, const Ad
   m_flows[i].m_rxBytes += packet->GetSize ();
   // m_flows[i].m_rxPackets++; // incrementing received pkts count if it is found in inflightpackets
   
+  if(m_flows[i].m_direction == Flow::UPLINK && (++recvPackets)%1000==0){
+    double thru = 0;
+    prevTime=currTime;
+    currTime= Simulator::Now().GetMicroSeconds();
+    double timepassed = currTime-prevTime;
+     
+      thru= (packet->GetSize ()*8.0*1000)/(1.0*timepassed);
+     
+    std::cout<<"Printing throughput"<<thru<<" "<<recvPackets<<" \n";
+    Throughputs.push_back(thru);
 
+  }
   if (m_flows[i].m_l4Proto == Flow::UDP)
     {
       // there must be a unique packet with the same UID as the received packet
@@ -3136,7 +3164,7 @@ WifiOfdmaExample::NotifyAppRx (std::size_t i, Ptr<const Packet> packet, const Ad
         }
       
       m_flows[i].m_rxPackets++; // incrementing received pkts count if it is found in inflightpackets
-  
+
 
       m_flows[i].m_latency.AddSample ((Simulator::Now () - it->second).ToDouble (Time::MS));
       m_flows[i].appLatencies.AddSample({packet->GetUid(),(Simulator::Now () - it->second).ToDouble (Time::MS)});
