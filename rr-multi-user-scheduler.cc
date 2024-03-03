@@ -43,6 +43,14 @@ uint32_t ru_242 = 0;
 uint32_t UL_cycle_count = 0;
  uint64_t Notxcnt=0,DLtxcnt=0,ULtxcnt=0;
  bool startThrougputcalc = false;
+ bool flag = true;
+
+
+Ptr<WifiMacQueueItem> mpdu_stored;
+
+int computedlinfocount = 0;
+MultiUserScheduler::DlMuInfo dlmuinfo_stored;
+
 TypeId
 RrMultiUserScheduler::GetTypeId (void)
 {
@@ -207,21 +215,21 @@ std::cout << "At time " << Simulator::Now().GetMicroSeconds () <<" SelectTxForma
         }
     }
     
-    if(txcnt<=200 || txcnt%10000==0){
-      dlppducalledinselecttx++;
-      std::cout <<"DL ppdu called inside selecttx" <<"\n";
+    // if(txcnt<=200 || txcnt%10000==0){
+    //   dlppducalledinselecttx++;
+    //   std::cout <<"DL ppdu called inside selecttx" <<"\n";
     
-      return TrySendingDlMuPpdu ();
-    }
-    else {
-      if(m_enableBsrp){
-        return TrySendingBsrpTf();
-      } 
-      else{
-        return TrySendingBasicTf();
-      }
+    //   return TrySendingDlMuPpdu ();
+    // }
+    // else {
+    //   if(m_enableBsrp){
+    //     return TrySendingBsrpTf();
+    //   } 
+    //   else{
+    //     return TrySendingBasicTf();
+    //   }
 
-    }
+    // }
 
 
     dlppducalledatendselecttx++;
@@ -229,11 +237,247 @@ std::cout << "At time " << Simulator::Now().GetMicroSeconds () <<" SelectTxForma
     return TrySendingDlMuPpdu ();
 }
 
+int bsrp_call_count = 0;
+
+// auto trigger_stored;
+
+// if(count )
+
 MultiUserScheduler::TxFormat
+
 RrMultiUserScheduler::TrySendingBsrpTf (void)
 {
   NS_LOG_FUNCTION (this);
   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () << " TrySendingBsrpTf function called"<<"\n";
+
+  if(computedlinfocount > 40 && m_enableBsrp && !flag && false){
+
+
+
+//   m_ul_candidates.clear();
+//   AcIndex primaryAc = m_edca->GetAccessCategory ();
+//   std::cout << "stations for ul:"<< m_staList[primaryAc].size()<<"\n";
+//   auto staIt = m_staList[primaryAc].begin ();  
+//   while (staIt != m_staList[primaryAc].end ())
+//     { 
+//       uint8_t tid=0;
+//       while (tid < 8){
+//         AcIndex ac = QosUtilsMapTidToAc (tid);
+//         Ptr<const WifiMacQueueItem> mpdu_dummy;    
+//         if (m_apMac->GetQosTxop (ac)->GetBaAgreementEstablished (staIt->address, tid)){
+//             m_ul_candidates.push_back({staIt, mpdu_dummy}); 
+//             break;    // terminate the for loop
+//         }            
+//         tid++;
+//       }      
+//       staIt++;
+//     }
+
+
+
+//    // UlMuInfo {m_trigger, m_tbPpduDuration, std::move (m_txParams)}
+//   m_txParams.Clear ();
+//   m_txParams.m_txVector.SetPreambleType (WIFI_PREAMBLE_HE_MU); // TB?
+//   m_txParams.m_txVector.SetChannelWidth (m_apMac->GetWifiPhy ()->GetChannelWidth ());
+//   m_txParams.m_txVector.SetGuardInterval (m_apMac->GetHeConfiguration ()->GetGuardInterval ().GetNanoSeconds ());
+
+//   auto candidateIt = m_ul_candidates.begin (); // iterator over the list of candidate receivers
+
+// DlMuInfo dlMuInfo;
+// dlMuInfo.txParams.m_txVector.SetPreambleType (m_txParams.m_txVector.GetPreambleType ());
+//   dlMuInfo.txParams.m_txVector.SetChannelWidth (m_txParams.m_txVector.GetChannelWidth ());
+//   dlMuInfo.txParams.m_txVector.SetGuardInterval (m_txParams.m_txVector.GetGuardInterval ());
+// std::size_t nRusAssigneds =m_ul_candidates.size();
+// std::cout << "m_ul_candidates size in new code ffff"<<nRusAssigneds<<"\n";
+
+//   for (std::size_t i = 0; i < nRusAssigneds + 0; i++)
+//     {
+//       if (candidateIt == m_ul_candidates.end ())
+//         {
+//           break;
+//         }
+
+//       uint16_t staId = candidateIt->first->aid;
+//       // AssignRuIndices will be called below to set RuSpec
+//       dlMuInfo.txParams.m_txVector.SetHeMuUserInfo (staId,
+//                                                     {{false, (i < nRusAssigneds ? HeRu::RU_26_TONE : HeRu::RU_26_TONE), 1},
+//                                                        WifiMode (m_MCS), 1});
+//       candidateIt++;
+//     }
+
+
+//   AssignRuIndices (dlMuInfo.txParams.m_txVector);
+
+
+//     CtrlTriggerHeader trigger (TriggerFrameType::BSRP_TRIGGER, dlmuinfo_stored.txParams.m_txVector);
+
+//     WifiTxVector txVector = dlmuinfo_stored.txParams.m_txVector;
+//     txVector.SetGuardInterval (trigger.GetGuardInterval ());
+
+//     Ptr<Packet> packet = Create<Packet> ();
+//     packet->AddHeader (trigger);
+
+//     Mac48Address receiver = Mac48Address::GetBroadcast ();
+//     if (trigger.GetNUserInfoFields () == 1)
+//       {
+//         NS_ASSERT (m_apMac->GetStaList ().find (trigger.begin ()->GetAid12 ()) != m_apMac->GetStaList ().end ());
+//         receiver = m_apMac->GetStaList ().at (trigger.begin ()->GetAid12 ());
+//       }
+
+//     WifiMacHeader hdr (WIFI_MAC_CTL_TRIGGER);
+//     hdr.SetAddr1 (receiver);
+//     hdr.SetAddr2 (m_apMac->GetAddress ());
+//     hdr.SetDsNotTo ();
+//     hdr.SetDsNotFrom ();
+
+//     Ptr<WifiMacQueueItem> item = Create<WifiMacQueueItem> (packet, hdr);
+
+//     m_txParams.Clear ();
+//     // set the TXVECTOR used to send the Trigger Frame
+//     m_txParams.m_txVector = m_apMac->GetWifiRemoteStationManager ()->GetRtsTxVector (receiver);
+
+//     if (!m_heFem->TryAddMpdu (item, m_txParams, m_availableTime))
+//       {
+//         // sending the BSRP Trigger Frame is not possible, hence return NO_TX. In
+//         // this way, no transmission will occur now and the next time we will
+//         // try again sending a BSRP Trigger Frame.
+//         NS_LOG_DEBUG ("Remaining TXOP duration is not enough for BSRP TF exchange");
+//         Notxcnt++;
+//         return NO_TX;
+//       }
+
+//     // Compute the time taken by each station to transmit 8 QoS Null frames
+//     Time qosNullTxDuration = Seconds (0);
+//     for (const auto& userInfo : trigger)
+//       {
+//         Time duration = WifiPhy::CalculateTxDuration (m_sizeOf8QosNull, txVector,
+//                                                       m_apMac->GetWifiPhy ()->GetPhyBand (),
+//                                                       userInfo.GetAid12 ());
+//         qosNullTxDuration = Max (qosNullTxDuration, duration);
+//       }
+
+//     if (m_availableTime != Time::Min ())
+//       {
+//         // TryAddMpdu only considers the time to transmit the Trigger Frame
+//         NS_ASSERT (m_txParams.m_protection && m_txParams.m_protection->protectionTime != Time::Min ());
+//         NS_ASSERT (m_txParams.m_acknowledgment && m_txParams.m_acknowledgment->acknowledgmentTime.IsZero ());
+//         NS_ASSERT (m_txParams.m_txDuration != Time::Min ());
+
+//         if (m_txParams.m_protection->protectionTime
+//             + m_txParams.m_txDuration     // BSRP TF tx time
+//             + m_apMac->GetWifiPhy ()->GetSifs ()
+//             + qosNullTxDuration
+//             > m_availableTime)
+//           {
+//             NS_LOG_DEBUG ("Remaining TXOP duration is not enough for BSRP TF exchange");
+//             Notxcnt++;
+//             return NO_TX;
+//           }
+//       }
+
+//     NS_LOG_INFO("Duration of QoS Null frames in ms: " << qosNullTxDuration.As (Time::MS));
+//     // std::cout<<"TF sent and QoS Frames received"<<Simulator::Now().GetMicroSeconds()<<" us. Duration of QoS Null frames in ms: " << qosNullTxDuration.As (Time::MS)<<"\n";
+//     trigger.SetUlLength (HePhy::ConvertHeTbPpduDurationToLSigLength (qosNullTxDuration,
+//                                                                       m_apMac->GetWifiPhy ()->GetPhyBand ()));
+//     trigger.SetCsRequired (true);
+//     m_heFem->SetTargetRssi (trigger);
+
+//     packet = Create<Packet> ();
+//     packet->AddHeader (trigger);
+//     m_trigger = Create<WifiMacQueueItem> (packet, hdr);
+
+//     m_ulTriggerType = TriggerFrameType::BSRP_TRIGGER;
+//     m_tbPpduDuration = qosNullTxDuration;
+
+//////////////////////////////////////////////////////////////////////
+
+  CtrlTriggerHeader trigger (TriggerFrameType::BSRP_TRIGGER, dlmuinfo_stored.txParams.m_txVector);
+
+  WifiTxVector txVector = dlmuinfo_stored.txParams.m_txVector;
+  txVector.SetGuardInterval (trigger.GetGuardInterval ());
+
+  Ptr<Packet> packet = Create<Packet> ();
+  packet->AddHeader (trigger);
+
+  Mac48Address receiver = Mac48Address::GetBroadcast ();
+  if (trigger.GetNUserInfoFields () == 1)
+    {
+      NS_ASSERT (m_apMac->GetStaList ().find (trigger.begin ()->GetAid12 ()) != m_apMac->GetStaList ().end ());
+      receiver = m_apMac->GetStaList ().at (trigger.begin ()->GetAid12 ());
+    }
+
+  WifiMacHeader hdr (WIFI_MAC_CTL_TRIGGER);
+  hdr.SetAddr1 (receiver);
+  hdr.SetAddr2 (m_apMac->GetAddress ());
+  hdr.SetDsNotTo ();
+  hdr.SetDsNotFrom ();
+
+  Ptr<WifiMacQueueItem> item = Create<WifiMacQueueItem> (packet, hdr);
+
+  m_txParams.Clear ();
+  // set the TXVECTOR used to send the Trigger Frame
+  m_txParams.m_txVector = m_apMac->GetWifiRemoteStationManager ()->GetRtsTxVector (receiver);
+
+  if (!m_heFem->TryAddMpdu (item, m_txParams, m_availableTime))
+    {
+      // sending the BSRP Trigger Frame is not possible, hence return NO_TX. In
+      // this way, no transmission will occur now and the next time we will
+      // try again sending a BSRP Trigger Frame.
+      NS_LOG_DEBUG ("Remaining TXOP duration is not enough for BSRP TF exchange");
+      Notxcnt++;
+      return NO_TX;
+    }
+
+  // Compute the time taken by each station to transmit 8 QoS Null frames
+  Time qosNullTxDuration = Seconds (0);
+  for (const auto& userInfo : trigger)
+    {
+      Time duration = WifiPhy::CalculateTxDuration (m_sizeOf8QosNull, txVector,
+                                                    m_apMac->GetWifiPhy ()->GetPhyBand (),
+                                                    userInfo.GetAid12 ());
+      qosNullTxDuration = Max (qosNullTxDuration, duration);
+    }
+
+  if (m_availableTime != Time::Min ())
+    {
+      // TryAddMpdu only considers the time to transmit the Trigger Frame
+      NS_ASSERT (m_txParams.m_protection && m_txParams.m_protection->protectionTime != Time::Min ());
+      NS_ASSERT (m_txParams.m_acknowledgment && m_txParams.m_acknowledgment->acknowledgmentTime.IsZero ());
+      NS_ASSERT (m_txParams.m_txDuration != Time::Min ());
+
+      if (m_txParams.m_protection->protectionTime
+          + m_txParams.m_txDuration     // BSRP TF tx time
+          + m_apMac->GetWifiPhy ()->GetSifs ()
+          + qosNullTxDuration
+          > m_availableTime)
+        {
+          NS_LOG_DEBUG ("Remaining TXOP duration is not enough for BSRP TF exchange");
+          Notxcnt++;
+          return NO_TX;
+        }
+    }
+
+  NS_LOG_INFO("Duration of QoS Null frames in ms: " << qosNullTxDuration.As (Time::MS));
+  // std::cout<<"TF sent and QoS Frames received"<<Simulator::Now().GetMicroSeconds()<<" us. Duration of QoS Null frames in ms: " << qosNullTxDuration.As (Time::MS)<<"\n";
+  trigger.SetUlLength (HePhy::ConvertHeTbPpduDurationToLSigLength (qosNullTxDuration,
+                                                                    m_apMac->GetWifiPhy ()->GetPhyBand ()));
+  trigger.SetCsRequired (true);
+  m_heFem->SetTargetRssi (trigger);
+
+  packet = Create<Packet> ();
+  packet->AddHeader (trigger);
+  m_trigger = Create<WifiMacQueueItem> (packet, hdr);
+
+  m_ulTriggerType = TriggerFrameType::BSRP_TRIGGER;
+  m_tbPpduDuration = qosNullTxDuration;
+
+  std::cout << "Issue function called: "<<"\n";
+    
+  }
+
+  else{
+  ///////////////////////////Original code//////////////////////////////////
+  
 
   CtrlTriggerHeader trigger (TriggerFrameType::BSRP_TRIGGER, GetDlMuInfo ().txParams.m_txVector);
 
@@ -314,6 +558,7 @@ RrMultiUserScheduler::TrySendingBsrpTf (void)
 
   m_ulTriggerType = TriggerFrameType::BSRP_TRIGGER;
   m_tbPpduDuration = qosNullTxDuration;
+  }
 //  ULtxcnt++;
   return UL_MU_TX;
  
@@ -321,10 +566,7 @@ RrMultiUserScheduler::TrySendingBsrpTf (void)
 
 int ul_count = 10;
 bool ul_limit = false;
-
 MultiUserScheduler::TxFormat
-
-
 RrMultiUserScheduler::TrySendingBasicTf (void)
 {
   NS_LOG_FUNCTION (this);
@@ -366,6 +608,16 @@ std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_arra
   for (const auto& candidate : m_ul_candidates)
   //for (const auto& candidate : m_candidates)
     {
+
+  //     WifiMacHeader& hdr = mpdu_stored->GetHeader ();
+  //     NS_ASSERT (hdr.IsQosData ());
+
+  //   uint32_t bufferSize = m_queue->GetNBytes (hdr.GetQosTid (), hdr.GetAddr1 ())
+  //                       + m_baManager->GetRetransmitQueue ()->GetNBytes (hdr.GetQosTid (), hdr.GetAddr1 ());
+  // // A queue size value of 254 is used for all sizes greater than 64 768 octets.
+  //     uint8_t queueSize = static_cast<uint8_t> (std::ceil (std::min (bufferSize, 64769u) / 256.0));
+
+
       uint8_t queueSize = m_apMac->GetMaxBufferStatus (candidate.first->address);
       // q_array.push_back({queueSize, candidate});
       // i++;
@@ -388,7 +640,7 @@ std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_arra
           maxBufferSize = std::max (maxBufferSize, static_cast<uint32_t> (queueSize * 256));
         }
       // serve the station if its queue size is not null
-      if (queueSize > 0 && ulCandidates.size() < 9 && m_enableBsrp)
+      if (queueSize > 0 && ulCandidates.size() < 9 && m_enableBsrp && queueSize != 255)
         {
           ulCandidates.emplace (queueSize, candidate); //multimap already puts them in sorted order(decreasing queue size)
         }
@@ -404,7 +656,7 @@ std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_arra
 
   // if the maximum buffer size is 0, skip UL OFDMA and proceed with trying DL OFDMA
 
-  if (maxBufferSize > 0)
+  if (maxBufferSize > 0 && !ulCandidates.empty())
     {
       NS_ASSERT (!ulCandidates.empty ());
       UL_cycle_count++;
@@ -420,8 +672,8 @@ std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_arra
       //   ul_scheduler = true;
       // }
 
-      std::string m_schedulerLogic_UL = "rr"; // Full bw
-      // std::string m_schedulerLogic_UL = "Bellalta"; // equal split
+      // std::string m_schedulerLogic_UL = "rr"; // Full bw
+      std::string m_schedulerLogic_UL = "Bellalta"; // equal split
       
 
       if(m_schedulerLogic_UL == "Bellalta"){
@@ -508,7 +760,7 @@ std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_arra
         {
           CtrlTriggerHeader trigger;
           GetUlMuInfo ().trigger->GetPacket ()->PeekHeader (trigger);
-
+ 
           txVector.SetChannelWidth (trigger.GetUlBandwidth ());
           txVector.SetGuardInterval (trigger.GetGuardInterval ());
 
@@ -893,12 +1145,16 @@ std::cout<<"DL All stations size"<<m_candidates.size()<<" Total stations: "<<int
     }
   DLtxcnt++;
   std::cout << "DL in dlmuppdu "<< "\n";
+  // if(flag) mpdu_stored = mpdu;
   return TxFormat::DL_MU_TX;
 }
+
+
 
 MultiUserScheduler::DlMuInfo
 RrMultiUserScheduler::ComputeDlMuInfo (void)
 {
+  computedlinfocount++;
   NS_LOG_FUNCTION (this);
   std::cout<<"Compute DL Mu info called\n";
 // if(getall) m_candidates = m_allcandidates ;
@@ -953,7 +1209,7 @@ RrMultiUserScheduler::ComputeDlMuInfo (void)
   dlMuInfo.txParams.m_txVector.SetPreambleType (m_txParams.m_txVector.GetPreambleType ());
   dlMuInfo.txParams.m_txVector.SetChannelWidth (m_txParams.m_txVector.GetChannelWidth ());
   dlMuInfo.txParams.m_txVector.SetGuardInterval (m_txParams.m_txVector.GetGuardInterval ());
-
+ 
   auto candidateIt = m_candidates.begin (); // iterator over the list of candidate receivers
 
   for (std::size_t i = 0; i < nRusAssigned + nCentral26TonesRus; i++)
@@ -971,6 +1227,8 @@ RrMultiUserScheduler::ComputeDlMuInfo (void)
                                                       m_txParams.m_txVector.GetNss (staId)});
       candidateIt++;
     }
+
+  std::cout << "no bsrp dl mu info"<<"\n";
 
   // remove candidates that will not be served
   m_candidates.erase (candidateIt, m_candidates.end ());
@@ -1085,6 +1343,15 @@ RrMultiUserScheduler::ComputeDlMuInfo (void)
 
   NS_LOG_DEBUG ("Next station to serve has AID=" << m_staList[primaryAc].front ().aid);
   getall = false;
+
+  std::cout << "MCANDIDATES size: "<<m_candidates.size() <<"\n";
+
+  if(computedlinfocount < 100 && m_candidates.size() == m_nStations && flag){
+    std::cout << "computeDLMUINFO called count: "<<computedlinfocount<<'\n';
+    dlmuinfo_stored = dlMuInfo;
+    flag = false;
+  }
+
   return dlMuInfo;
 }
 
