@@ -70,6 +70,9 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("WifiOfdmaExample");
 bool graph_stats{false}; // If true we are simulating to gather data for plots
+uint32_t mac_tx = 0;
+uint32_t mac_rx = 0;
+    
 
 /**
  * \brief Example to test DL/UL OFDMA
@@ -146,7 +149,7 @@ public:
     double m_dataRate;        // b/s
     /* Measured end-to-end metrics */
     Stats<double> m_latency;
-   
+
     PacketsinFlow packetsinFlow, packetsinFlow_mac;
     Stats<std::pair<uint64_t /* UID */,double> > appLatencies;
     uint64_t m_txBytes {0};
@@ -312,11 +315,11 @@ private:
   // double m_simulationTime{20}; // seconds
 //   bool graph_stats{true}; // If true we are simulating to gather data for plots
   double extrastoptime{100}; // Extra time simulator runs and then stops
-  double m_simulationTime{5}; // seconds
+  double m_simulationTime{10}; // seconds
   uint32_t m_startInterval{10};
   int m_na{5};
   std::string m_dlTraffic{"mu"};
-  std::string m_ulTraffic{"su"};
+  std::string m_ulTraffic{"mu"};
   double m_ulFlowDataRate{1}; // If -1, full queues
   double m_dlFlowDataRate{1}; // If -1, full queues
   // duration of the interval in which apps can start sending packets (ms)
@@ -334,7 +337,7 @@ private:
   bool m_enableUlOfdma{false};
   bool startThroughputcalc{false};
   bool m_enableTxopSharing{false};
-  bool m_enableBsrp{true};  
+  bool m_enableBsrp{false};  
    double prevTime=0,currTime;
  
    uint64_t recvPackets=0;
@@ -873,17 +876,40 @@ WifiOfdmaExample::GenerateTrafficFlows ()
 {
   uint16_t dstPort = 7000;
   uint16_t endStaId = m_nStations;
-  // uint16_t exclude = 2;
-
+  
   for (uint16_t staId = 1; staId <= endStaId; staId++)
     {
+      Flow flow;
       if (m_dlTraffic != "None")
         {
           // Ptr<UniformRandomVariable> rate_random;
-          // rate_random = CreateObjectWithAttributes<UniformRandomVariable> ("Min", DoubleValue (0.0), "Max",
-          //                                                           DoubleValue (m_dlFlowDataRate));
-        //   if(staId == exclude){
-          Flow flow;
+          // rate_random = CreateObjectWithAttributes<UniformRandomVariable> ("Min", DoubleValue (0.0), "Max",DoubleValue (m_dlFlowDataRate));
+          //
+          if(staId == 1){ // Video call DL                                                      
+          flow.m_ac = AC_VI;
+          flow.m_l4Proto = Flow::UDP;
+          flow.m_payloadSize = m_frameSize;
+          flow.m_stationId = staId;
+          flow.m_dataRate = m_dlFlowDataRate * 1 * 1e6;
+          flow.m_direction = Flow::DOWNLINK;
+          flow.m_dstPort = dstPort++;
+          NS_LOG_DEBUG ("Adding flow " << flow);
+          std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          m_flows.push_back (flow);
+          }
+          else if(staId == 2){ // Audio call DL
+          flow.m_ac = AC_VO;
+          flow.m_l4Proto = Flow::UDP;
+          flow.m_payloadSize = m_frameSize;
+          flow.m_stationId = staId;
+          flow.m_dataRate = m_dlFlowDataRate * 1 * 1e6;
+          flow.m_direction = Flow::DOWNLINK;
+          flow.m_dstPort = dstPort++;
+          NS_LOG_DEBUG ("Adding flow " << flow);
+          std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          m_flows.push_back (flow);
+          }
+          else if(staId == 3){ // Video streaming DL
           flow.m_ac = AC_BE;
           flow.m_l4Proto = Flow::UDP;
           flow.m_payloadSize = m_frameSize;
@@ -892,30 +918,41 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           flow.m_direction = Flow::DOWNLINK;
           flow.m_dstPort = dstPort++;
           NS_LOG_DEBUG ("Adding flow " << flow);
-        //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
           m_flows.push_back (flow);
-        // //   }
-        //   if(staId != exclude && false){
-        //   Flow flow;
-        //   flow.m_ac = AC_BE;
-        //   flow.m_l4Proto = Flow::UDP;
-        //   flow.m_payloadSize = m_frameSize;
-        //   flow.m_stationId = staId;
-        //   flow.m_dataRate = m_dlFlowDataRate * 1 * 1e6;
-        //   flow.m_direction = Flow::DOWNLINK;
-        //   flow.m_dstPort = dstPort++;
-        //   NS_LOG_DEBUG ("Adding flow " << flow);
-        // //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
-        //   m_flows.push_back (flow);
-        //   }
-        }
+          }else if(staId == 4){ // file download DL
+          flow.m_ac = AC_BE;
+          flow.m_l4Proto = Flow::TCP;
+          flow.m_payloadSize = m_frameSize;
+          flow.m_stationId = staId;
+          flow.m_dataRate = m_dlFlowDataRate * 1 * 1e6;
+          flow.m_direction = Flow::DOWNLINK;
+          flow.m_dstPort = dstPort++;
+          NS_LOG_DEBUG ("Adding flow " << flow);
+          std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          m_flows.push_back (flow);
+          }else if(staId == 5){ // haptic control DL
+          flow.m_ac = AC_VO;
+          flow.m_l4Proto = Flow::TCP;
+          flow.m_payloadSize = m_frameSize;
+          flow.m_stationId = staId;
+          flow.m_dataRate = m_dlFlowDataRate * 1 * 1e6;
+          flow.m_direction = Flow::DOWNLINK;
+          flow.m_dstPort = dstPort++;
+          NS_LOG_DEBUG ("Adding flow " << flow);
+          std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          m_flows.push_back (flow);
+          }
+
+          }
+        
       if (m_ulTraffic != "None")
         {
           // Ptr<UniformRandomVariable> rate_random;
           // rate_random = CreateObjectWithAttributes<UniformRandomVariable> ("Min", DoubleValue (0.0), "Max",
-          //                                                           DoubleValue (m_ulFlowDataRate));
-          Flow flow;
-          flow.m_ac = AC_BE;
+          //
+          if(staId == 1){ // video call UL                                                          
+          flow.m_ac = AC_VI;
           flow.m_l4Proto = Flow::UDP;
           flow.m_payloadSize = m_frameSize;
           flow.m_stationId = staId;
@@ -925,9 +962,59 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           NS_LOG_DEBUG ("Adding flow " << flow);
         //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
           m_flows.push_back (flow);
+          }else if(staId == 2){ // audio call UL
+          flow.m_ac = AC_VO;
+          flow.m_l4Proto = Flow::UDP;
+          flow.m_payloadSize = m_frameSize;
+          flow.m_stationId = staId;
+          flow.m_dataRate = m_ulFlowDataRate * 1 * 1e6;
+          flow.m_direction = Flow::UPLINK;
+          flow.m_dstPort = dstPort++;
+          NS_LOG_DEBUG ("Adding flow " << flow);
+        //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          m_flows.push_back (flow);
+          }else if(staId == 5){ // Haptic UL(Audio, video and pos)
+          flow.m_ac = AC_VO;
+          flow.m_l4Proto = Flow::TCP;
+          flow.m_payloadSize = m_frameSize;
+          flow.m_stationId = staId;
+          flow.m_dataRate = m_ulFlowDataRate * 1 * 1e6;
+          flow.m_direction = Flow::UPLINK;
+          flow.m_dstPort = dstPort++;
+          NS_LOG_DEBUG ("Adding flow " << flow);
+          //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          m_flows.push_back (flow);
+
+          /////////////////
+
+          flow.m_ac = AC_BE;
+          flow.m_l4Proto = Flow::UDP;
+          flow.m_payloadSize = m_frameSize;
+          flow.m_stationId = staId;
+          flow.m_dataRate = m_ulFlowDataRate * 1 * 1e6;
+          flow.m_direction = Flow::UPLINK;
+          flow.m_dstPort = dstPort++;
+          NS_LOG_DEBUG ("Adding flow " << flow);
+          //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          m_flows.push_back (flow);
+
+          //////////////////
+
+          flow.m_ac = AC_BE;
+          flow.m_l4Proto = Flow::UDP;
+          flow.m_payloadSize = m_frameSize;
+          flow.m_stationId = staId;
+          flow.m_dataRate = m_ulFlowDataRate * 1 * 1e6;
+          flow.m_direction = Flow::UPLINK;
+          flow.m_dstPort = dstPort++;
+          NS_LOG_DEBUG ("Adding flow " << flow);
+          //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          m_flows.push_back (flow);
+          }
         }
     }
-}
+    }
+
 
 void
 WifiOfdmaExample::NotifyCwChange (uint32_t oldCw, uint32_t newCw)
@@ -1790,9 +1877,16 @@ WifiOfdmaExample::PrintResults (std::ostream &os)
         // aggr_ul_pkt += (m_flows[i].m_rxBytes)/(1610);
         aggr_ul_pkt += m_flows[i].m_rxPackets;
       }
+      uint64_t rcv;
+      if(m_flows[i].m_l4Proto == Flow::TCP){
+        rcv = DynamicCast<PacketSink> (m_sinkApps.Get (i))->GetTotalRx ();
+      }
+      else{
+        rcv = m_flows[i].m_rxBytes;
+      }
       
       os << std::fixed << std::setprecision (3)
-         << "Throughput: " << (m_flows[i].m_rxBytes * 8.) / (m_simulationTime * 1e6)
+         << "Throughput: " << (rcv * 8.) / (m_simulationTime * 1e6)
          << " Latency: " << avglat/double(count) << " Count :" << count << std::endl;
         
         //  << "Latency: " << m_flows[i].m_latency << std::endl
@@ -2196,14 +2290,25 @@ WifiOfdmaExample::EstablishBaAgreement (Mac48Address bssid)
         //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () << " Installing client application for flow " << i << '\n'; 
           std::string socketType =
               (flow.m_l4Proto == Flow::TCP ? "ns3::TcpSocketFactory" : "ns3::UdpSocketFactory");
-          OnOffHelper client (socketType, Ipv4Address::GetAny ());
+          OnOffHelper client
+           (socketType, Ipv4Address::GetAny ());
+
+// ////////////////////////////////
+          // double mean = 2;
+          // double variance = 0.1;
+          // Ptr<NormalRandomVariable> x = CreateObject<NormalRandomVariable> ();
+          // x->SetAttribute ("Mean", DoubleValue (mean));
+          // x->SetAttribute ("Variance", DoubleValue (variance));
+          // double value = x->GetValue ();
+
+//////////////////////////////////
+          
           client.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
           client.SetAttribute ("OffTime",
                                StringValue ("ns3::ConstantRandomVariable[Constant=" +
                                             std::to_string (pingInterval / 1000.) + "]"));
           client.SetAttribute ("DataRate", DataRateValue (DataRate (flow.m_dataRate)));
           client.SetAttribute ("PacketSize", UintegerValue (flow.m_payloadSize));
-
           Ipv4Address destAddress;
           Ptr<Node> srcNode;
           if (flow.m_direction == Flow::DOWNLINK)
@@ -2447,12 +2552,43 @@ WifiOfdmaExample::StartTraffic (void)
 //////////////////////our change////////////////////////////////
 
   std::string onTime = std::to_string (m_warmup + m_simulationTime);
+  // int h = 0;
 
   for (auto &clientApp : m_clientApps)
     {
+
+
+      ////////////////////////////
+      double scale = 2.0;
+      double shape = 3.0;
+      Ptr<WeibullRandomVariable> x = CreateObject<WeibullRandomVariable> ();
+      x->SetAttribute ("Scale", DoubleValue (scale));
+      x->SetAttribute ("Shape", DoubleValue (shape));
+      double value = x->GetValue ();
+      std::cout << "weibull: "<<value << '\n';
+
+      
+/////////////////////////////
+  
       clientApp->SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant="
                                                       + onTime + "]"));
+
       clientApp->SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
+      
+      
+      // clientApp->SetAttribute("OffTime", StringValue("ns3::LogNormalRandomVariable[Mu=0.04, Sigma = 0.003]"));
+      // clientApp->SetAttribute("OnTime", StringValue("ns3::LogNormalRandomVariable[Mu=0.4, Sigma = 0.03]"));
+
+      // clientApp->SetAttribute("MaxBytes", UintegerValue(30000));
+
+      // clientApp->SetAttribute ("OnTime", StringValue ("ns3::UniformRandomVariable[Min=0.5|Max=2]"));
+
+      // clientApp->SetAttribute("OnTime", StringValue("ns3::WeibullRandomVariable[Shape=3.0|Scale=2.0]"));
+
+      // clientApp->SetAttribute("OnTime", StringValue("ns3::NormalRandomVariable[Mean=2.0|Variance=0.1]"));
+      std::cout << "nodenode: " << clientApp->GetNode() << '\n';
+
+    // h++;
     }
    
   for (auto &obssClientApp : m_obssClientApps)
@@ -3151,7 +3287,7 @@ WifiOfdmaExample::NotifyAppTx (std::size_t i, Ptr<const Packet> packet)
   prev_tx = Simulator::Now().GetMicroSeconds();
   m_flows[i].m_txBytes += packet->GetSize ();
   // m_flows[i].m_txPackets++;
-  // std::cout << "Packet size at APP: " << packet->GetSize () << "\n";
+  std::cout << "Packet size at APP: " << packet->GetSize () << "\n";
   
 
   bool inserted;
@@ -3169,10 +3305,11 @@ WifiOfdmaExample::NotifyAppTx (std::size_t i, Ptr<const Packet> packet)
       NS_ABORT_MSG_IF (!inserted,
                        "Duplicate total bytes sent " << m_flows[i].m_txBytes << " with TCP?");
     }
-  if(inserted){
+  // if(inserted){
     m_flows[i].packetsinFlow.m_samples.insert({packet->GetUid(),false});
     m_flows[i].m_txPackets++;
-  }
+
+  // }
 }
 
 void
@@ -3230,15 +3367,15 @@ WifiOfdmaExample::NotifyAppRx (std::size_t i, Ptr<const Packet> packet, const Ad
             {
               m_flows[i].m_latency.AddSample ((Simulator::Now () - it->second).ToDouble (Time::MS));
 
-               m_flows[i].appLatencies.AddSample({packet->GetUid(),(Simulator::Now () - it->second).ToDouble (Time::MS)});
+              m_flows[i].appLatencies.AddSample({packet->GetUid(),(Simulator::Now () - it->second).ToDouble (Time::MS)});
               it = m_flows[i].m_inFlightPackets.erase (it);
-              auto it1 = m_flows[i].packetsinFlow.m_samples.find({packet->GetUid (),false});
+            //   auto it1 = m_flows[i].packetsinFlow.m_samples.find({packet->GetUid (),false});
 
-             if (it1 != m_flows[i].packetsinFlow.m_samples.end ()){
-                 m_flows[i].packetsinFlow.m_samples.erase({packet->GetUid (),false});
-              m_flows[i].packetsinFlow.m_samples.insert({packet->GetUid (),true});
+            //  if (it1 != m_flows[i].packetsinFlow.m_samples.end ()){
+            //     m_flows[i].packetsinFlow.m_samples.erase({packet->GetUid (),false});
+            //     m_flows[i].packetsinFlow.m_samples.insert({packet->GetUid (),true});
             
-             }
+            //  }
              m_flows[i].m_rxPackets++; // incrementing received pkts count if it is found in inflightpackets
 
              
@@ -3257,6 +3394,9 @@ WifiOfdmaExample::NotifyAppRx (std::size_t i, Ptr<const Packet> packet, const Ad
 void
 WifiOfdmaExample::NotifyEdcaEnqueue (Ptr<const WifiMacQueueItem> item)
 {
+  mac_tx++;
+  std::cout << "NotifyEdcaEnqueue :" << mac_tx <<'\n';
+  
   m_flows[0].packetsinFlow_mac.m_samples.insert({item->GetPacket()->GetUid(),false});
  
   if (!item->GetHeader ().IsQosData ())
@@ -3271,16 +3411,19 @@ WifiOfdmaExample::NotifyEdcaEnqueue (Ptr<const WifiMacQueueItem> item)
 
   auto mapIt=temp.first;
 
-  if(temp.second){
-      //uint32_t xsize = item->GetPacket()->GetSize();
-      // std::cout << "Packet size at MAC :" << xsize << "\n";
- m_flows[0].m_txBytes_mac += item->GetPacket()->GetSize();
-          m_flows[0].m_txPackets_mac++;
-      // if(xsize == 1536){
-      //     m_flows[0].m_txBytes_mac += item->GetPacket()->GetSize();
-      //     m_flows[0].m_txPackets_mac++;
-      // }
-  }
+  // if(temp.second){
+      uint32_t xsize = item->GetPacket()->GetSize();
+      std::cout << "Packet size at MAC :" << xsize << "\n";
+  //         m_flows[0].m_txBytes_mac += item->GetPacket()->GetSize();
+  //         m_flows[0].m_txPackets_mac++;
+  //     // if(xsize == 1536){
+  //     //     m_flows[0].m_txBytes_mac += item->GetPacket()->GetSize();
+  //     //     m_flows[0].m_txPackets_mac++;
+  //     // }
+  // }
+
+  m_flows[0].m_txBytes_mac += item->GetPacket()->GetSize();
+  m_flows[0].m_txPackets_mac++;
 
 
   InFlightPacketInfo info;
@@ -3296,6 +3439,9 @@ WifiOfdmaExample::NotifyEdcaEnqueue (Ptr<const WifiMacQueueItem> item)
 void
 WifiOfdmaExample::NotifyMacForwardUp (Ptr<const Packet> p)
 {
+  mac_rx++;
+  std::cout << "NotifyMacForwardUp" << mac_rx << '\n';
+  
    
     auto it1 = m_flows[0].packetsinFlow_mac.m_samples.find({p->GetUid (),false});
      if (it1 != m_flows[0].packetsinFlow_mac.m_samples.end ()){
@@ -3307,6 +3453,7 @@ WifiOfdmaExample::NotifyMacForwardUp (Ptr<const Packet> p)
   if (mapIt == m_inFlightPacketMap.end ())
     {
       NS_LOG_WARN ("No packet with UID " << p->GetUid () << " is currently in flight");
+      std::cout << "No packet with UID " << p->GetUid () << " is currently in flight" << '\n';
       return;
     }
 
@@ -3317,6 +3464,7 @@ WifiOfdmaExample::NotifyMacForwardUp (Ptr<const Packet> p)
   if (listIt == mapIt->second.end ())
     {
       NS_LOG_WARN ("Forwarding up a packet that has not been enqueued?");
+      std::cout << "Forwarding up a packet that has not been enqueued?" << '\n';
       return;
     }
 
@@ -3330,8 +3478,8 @@ WifiOfdmaExample::NotifyMacForwardUp (Ptr<const Packet> p)
 //     m_flows[0].m_rxBytes_mac += p->GetSize();
 //  }
 
-m_flows[0].m_rxPackets_mac++;
-    m_flows[0].m_rxBytes_mac += p->GetSize();
+  m_flows[0].m_rxPackets_mac++;
+  m_flows[0].m_rxBytes_mac += p->GetSize();
   std::vector<std::map<AcIndex, PairwisePerAcStats>>::iterator vecIt;
 
   if (MacAddressToNodeId (listIt->m_srcAddress) == 0)
@@ -3367,7 +3515,6 @@ WifiOfdmaExample::ContextToNodeId (const std::string &context)
 int
 main (int argc, char *argv[])
 {
-
   LogComponentEnable("WifiOfdmaExample", LOG_LEVEL_INFO);
  
   WifiOfdmaExample example;
