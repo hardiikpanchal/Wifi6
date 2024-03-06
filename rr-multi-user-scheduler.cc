@@ -672,8 +672,8 @@ std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_arra
       //   ul_scheduler = true;
       // }
 
-      // std::string m_schedulerLogic_UL = "rr"; // Full bw
-      std::string m_schedulerLogic_UL = "Bellalta"; // equal split
+      std::string m_schedulerLogic_UL = "rr"; // Full bw
+      // std::string m_schedulerLogic_UL = "Bellalta"; // equal split
       
 
       if(m_schedulerLogic_UL == "Bellalta"){
