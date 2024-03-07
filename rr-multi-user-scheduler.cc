@@ -137,7 +137,8 @@ RrMultiUserScheduler::DoInitialize (void)
                                        MakeCallback (&RrMultiUserScheduler::NotifyStationAssociated, this));
   m_apMac->TraceConnectWithoutContext ("DeAssociatedSta",
                                        MakeCallback (&RrMultiUserScheduler::NotifyStationDeassociated, this));
-  m_staList = {{AC_BE, std::list<MasterInfo> ()}};
+  m_staList = {{AC_BE, std::list<MasterInfo> ()}, {AC_VI, std::list<MasterInfo> ()}, {AC_VO, std::list<MasterInfo> ()},
+  {AC_BK, std::list<MasterInfo> ()}};
   // if (m_staList.empty())
   //   {
   //     AcIndex primaryAc = m_edca->GetAccessCategory ();
@@ -581,8 +582,9 @@ RrMultiUserScheduler::TrySendingBasicTf (void)
 
    // Sri Prakash
   // mycode begin
- m_ul_candidates.clear();
+  m_ul_candidates.clear();
   AcIndex primaryAc = m_edca->GetAccessCategory ();
+  std::cout <<"ulprimaryac: "<< unsigned(primaryAc)<<'\n';
   std::cout << "stations for ul:"<< m_staList[primaryAc].size()<<"\n";
   auto staIt = m_staList[primaryAc].begin ();  
   while (staIt != m_staList[primaryAc].end ())
@@ -599,6 +601,8 @@ RrMultiUserScheduler::TrySendingBasicTf (void)
       }      
       staIt++;
     }
+
+std::cout <<"mulcandsize: "<<m_ul_candidates.size()<<"\n";
   // my code end
   // Sri Prakash
 
@@ -976,6 +980,7 @@ RrMultiUserScheduler::TrySendingDlMuPpdu (void)
   NS_LOG_FUNCTION (this);
 
   AcIndex primaryAc = m_edca->GetAccessCategory ();
+  std::cout << "primaryac: "<< unsigned(primaryAc) << '\n';
 
   if (m_staList[primaryAc].empty ())
     {
