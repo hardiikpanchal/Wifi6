@@ -337,7 +337,7 @@ private:
   bool m_enableUlOfdma{false};
   bool startThroughputcalc{false};
   bool m_enableTxopSharing{false};
-  bool m_enableBsrp{false};  
+  bool m_enableBsrp{true};  
    double prevTime=0,currTime;
  
    uint64_t recvPackets=0;
@@ -876,6 +876,63 @@ WifiOfdmaExample::GenerateTrafficFlows ()
 {
   uint16_t dstPort = 7000;
   uint16_t endStaId = m_nStations;
+
+
+  //original code/////
+
+  // for (uint16_t staId = 1; staId <= endStaId; staId++)
+  //   {
+  //     if (m_dlTraffic != "None")
+  //       {
+  //         Flow flow;
+  //         // flow.m_ac = AC_BE;
+  //         // flow.m_l4Proto = Flow::UDP;
+  //         // flow.m_payloadSize = m_frameSize;
+  //         // flow.m_stationId = staId;
+  //         // flow.m_dataRate = 2 * 1 * 1e6;
+  //         // flow.m_direction = Flow::DOWNLINK;
+  //         // flow.m_dstPort = dstPort++;
+  //         // NS_LOG_DEBUG ("Adding flow " << flow);
+  //         // m_flows.push_back (flow);
+
+  //         flow.m_ac = AC_VO;
+  //         flow.m_l4Proto = Flow::UDP;
+  //         flow.m_payloadSize = m_frameSize;
+  //         flow.m_stationId = staId;
+  //         flow.m_dataRate = 2 * 1 * 1e6;
+  //         flow.m_direction = Flow::DOWNLINK;
+  //         flow.m_dstPort = dstPort++;
+  //         NS_LOG_DEBUG ("Adding flow " << flow);
+  //         m_flows.push_back (flow);
+  //       }
+  //     if (m_ulTraffic != "None")
+  //       {
+  //         Flow flow;
+  //         flow.m_ac = AC_BE;
+  //         flow.m_l4Proto = Flow::UDP;
+  //         flow.m_payloadSize = m_frameSize;
+  //         flow.m_stationId = staId;
+  //         flow.m_dataRate = 2 * 1 * 1e6;
+  //         flow.m_direction = Flow::UPLINK;
+  //         flow.m_dstPort = dstPort++;
+  //         NS_LOG_DEBUG ("Adding flow " << flow);
+  //         m_flows.push_back (flow);
+
+  //         // Flow flow;
+  //         flow.m_ac = AC_VO;
+  //         flow.m_l4Proto = Flow::UDP;
+  //         flow.m_payloadSize = m_frameSize;
+  //         flow.m_stationId = staId;
+  //         flow.m_dataRate = 2 * 1 * 1e6;
+  //         flow.m_direction = Flow::UPLINK;
+  //         flow.m_dstPort = dstPort++;
+  //         NS_LOG_DEBUG ("Adding flow " << flow);
+  //         m_flows.push_back (flow);
+  //       }
+  //   }
+
+
+  /////Haptic-model////////////////
   
   for (uint16_t staId = 1; staId <= endStaId; staId++)
     {
@@ -2570,8 +2627,8 @@ WifiOfdmaExample::StartTraffic (void)
       
 /////////////////////////////
   
-      clientApp->SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant="
-                                                      + onTime + "]"));
+      // clientApp->SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant="
+      //                                                 + onTime + "]"));
 
       clientApp->SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
       
@@ -2583,7 +2640,7 @@ WifiOfdmaExample::StartTraffic (void)
 
       // clientApp->SetAttribute ("OnTime", StringValue ("ns3::UniformRandomVariable[Min=0.5|Max=2]"));
 
-      // clientApp->SetAttribute("OnTime", StringValue("ns3::WeibullRandomVariable[Shape=3.0|Scale=2.0]"));
+      clientApp->SetAttribute("OnTime", StringValue("ns3::WeibullRandomVariable[Shape=3.0|Scale=2.0]"));
 
       // clientApp->SetAttribute("OnTime", StringValue("ns3::NormalRandomVariable[Mean=2.0|Variance=0.1]"));
       std::cout << "nodenode: " << clientApp->GetNode() << '\n';
