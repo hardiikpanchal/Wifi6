@@ -337,7 +337,7 @@ private:
   bool m_enableUlOfdma{false};
   bool startThroughputcalc{false};
   bool m_enableTxopSharing{false};
-  bool m_enableBsrp{true};  
+  bool m_enableBsrp{false};  
    double prevTime=0,currTime;
  
    uint64_t recvPackets=0;
@@ -366,7 +366,7 @@ private:
   double m_rxGain{0.0}; // dBi
   double m_rxSensitivity{-91.0};
   uint16_t m_maxNRus{18}; // max number of RUs per MU PPDU
-  std::string m_heRate{"5"}; // "ideal" or MCS value
+  std::string m_heRate{"8"}; // "ideal" or MCS value
   uint16_t m_beMaxAmsduSize{0}; // maximum A-MSDU size for BE
   uint16_t m_bkMaxAmsduSize{0}; // maximum A-MSDU size for BK
   uint16_t m_viMaxAmsduSize{0}; // maximum A-MSDU size for VI
@@ -418,7 +418,7 @@ private:
   bool m_verbose{false};
   uint16_t m_nIntervals{20}; // number of intervals in which the simulation time is divided
   uint16_t m_elapsedIntervals{0};
-  std::string m_scheduler = "rr";
+  std::string m_scheduler = "bellalta";
 
   // rr - full bw usage(no bw waste)
   // bellalta - maximizes STA(there can be bw waste) equal split
@@ -879,75 +879,80 @@ WifiOfdmaExample::GenerateTrafficFlows ()
 
 
   //original code/////
+  bool haptic = true;
 
-  // for (uint16_t staId = 1; staId <= endStaId; staId++)
-  //   {
-  //     if (m_dlTraffic != "None")
-  //       {
-  //         Flow flow;
-  //         // flow.m_ac = AC_BE;
-  //         // flow.m_l4Proto = Flow::UDP;
-  //         // flow.m_payloadSize = m_frameSize;
-  //         // flow.m_stationId = staId;
-  //         // flow.m_dataRate = 2 * 1 * 1e6;
-  //         // flow.m_direction = Flow::DOWNLINK;
-  //         // flow.m_dstPort = dstPort++;
-  //         // NS_LOG_DEBUG ("Adding flow " << flow);
-  //         // m_flows.push_back (flow);
+  if(haptic == false){
 
-  //         flow.m_ac = AC_VO;
-  //         flow.m_l4Proto = Flow::UDP;
-  //         flow.m_payloadSize = m_frameSize;
-  //         flow.m_stationId = staId;
-  //         flow.m_dataRate = 2 * 1 * 1e6;
-  //         flow.m_direction = Flow::DOWNLINK;
-  //         flow.m_dstPort = dstPort++;
-  //         NS_LOG_DEBUG ("Adding flow " << flow);
-  //         m_flows.push_back (flow);
-  //       }
-  //     if (m_ulTraffic != "None")
-  //       {
-  //         Flow flow;
-  //         flow.m_ac = AC_BE;
-  //         flow.m_l4Proto = Flow::UDP;
-  //         flow.m_payloadSize = m_frameSize;
-  //         flow.m_stationId = staId;
-  //         flow.m_dataRate = 2 * 1 * 1e6;
-  //         flow.m_direction = Flow::UPLINK;
-  //         flow.m_dstPort = dstPort++;
-  //         NS_LOG_DEBUG ("Adding flow " << flow);
-  //         m_flows.push_back (flow);
+  for (uint16_t staId = 1; staId <= endStaId; staId++)
+    {
+      if (m_dlTraffic != "None")
+        {
+          Flow flow;
+          // flow.m_ac = AC_BE;
+          // flow.m_l4Proto = Flow::UDP;
+          // flow.m_payloadSize = m_frameSize;
+          // flow.m_stationId = staId;
+          // flow.m_dataRate = 2 * 1 * 1e6;
+          // flow.m_direction = Flow::DOWNLINK;
+          // flow.m_dstPort = dstPort++;
+          // NS_LOG_DEBUG ("Adding flow " << flow);
+          // m_flows.push_back (flow);
 
-  //         // Flow flow;
-  //         flow.m_ac = AC_VO;
-  //         flow.m_l4Proto = Flow::UDP;
-  //         flow.m_payloadSize = m_frameSize;
-  //         flow.m_stationId = staId;
-  //         flow.m_dataRate = 2 * 1 * 1e6;
-  //         flow.m_direction = Flow::UPLINK;
-  //         flow.m_dstPort = dstPort++;
-  //         NS_LOG_DEBUG ("Adding flow " << flow);
-  //         m_flows.push_back (flow);
-  //       }
-  //   }
+          flow.m_ac = AC_VO;
+          flow.m_l4Proto = Flow::UDP;
+          flow.m_payloadSize = m_frameSize;
+          flow.m_stationId = staId;
+          flow.m_dataRate = 1 * m_dlFlowDataRate * 1e6;
+          flow.m_direction = Flow::DOWNLINK;
+          flow.m_dstPort = dstPort++;
+          NS_LOG_DEBUG ("Adding flow " << flow);
+          m_flows.push_back (flow);
+        }
+      if (m_ulTraffic != "None")
+        {
+          Flow flow; 
+          if(staId == 1) flow.m_ac = AC_VO;
+          if(staId == 2) flow.m_ac = AC_BE;
+          if(staId == 3) flow.m_ac = AC_VI;
+          flow.m_l4Proto = Flow::UDP;
+          flow.m_payloadSize = m_frameSize;
+          flow.m_stationId = staId;
+          flow.m_dataRate = m_ulFlowDataRate * 1e6;
+          flow.m_direction = Flow::UPLINK;
+          flow.m_dstPort = dstPort++;
+          NS_LOG_DEBUG ("Adding flow " << flow);
+          m_flows.push_back (flow);
+          
+          // Flow flow;
+          // flow.m_ac = AC_BE;
+          // flow.m_l4Proto = Flow::UDP;
+          // flow.m_payloadSize = m_frameSize;
+          // flow.m_stationId = staId;
+          // flow.m_dataRate = 0.5 * m_ulFlowDataRate * 1e6;
+          // flow.m_direction = Flow::UPLINK;
+          // flow.m_dstPort = dstPort++;
+          // NS_LOG_DEBUG ("Adding flow " << flow);
+          // m_flows.push_back (flow);
+        }
+    }
+}
 
-
-  /////Haptic-model////////////////
+  ///Haptic-model////////////////
+  else{
   
   for (uint16_t staId = 1; staId <= endStaId; staId++)
     {
       Flow flow;
       if (m_dlTraffic != "None")
         {
-          // Ptr<UniformRandomVariable> rate_random;
-          // rate_random = CreateObjectWithAttributes<UniformRandomVariable> ("Min", DoubleValue (0.0), "Max",DoubleValue (m_dlFlowDataRate));
-          //
+          
           if(staId == 1){ // Video call DL                                                      
           flow.m_ac = AC_VI;
           flow.m_l4Proto = Flow::UDP;
-          flow.m_payloadSize = m_frameSize;
+          flow.m_payloadSize = 1500;
+          // flow.m_payloadSize = 2500;
           flow.m_stationId = staId;
-          flow.m_dataRate = m_dlFlowDataRate * 1 * 1e6;
+          flow.m_dataRate = 3 * 1 * 1e6;
           flow.m_direction = Flow::DOWNLINK;
           flow.m_dstPort = dstPort++;
           NS_LOG_DEBUG ("Adding flow " << flow);
@@ -957,9 +962,10 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           else if(staId == 2){ // Audio call DL
           flow.m_ac = AC_VO;
           flow.m_l4Proto = Flow::UDP;
-          flow.m_payloadSize = m_frameSize;
+          flow.m_payloadSize = 160;
+          // flow.m_payloadSize = 2500;
           flow.m_stationId = staId;
-          flow.m_dataRate = m_dlFlowDataRate * 1 * 1e6;
+          flow.m_dataRate =  64 * 1e3;
           flow.m_direction = Flow::DOWNLINK;
           flow.m_dstPort = dstPort++;
           NS_LOG_DEBUG ("Adding flow " << flow);
@@ -967,33 +973,38 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           m_flows.push_back (flow);
           }
           else if(staId == 3){ // Video streaming DL
-          flow.m_ac = AC_BE;
+          flow.m_ac = AC_VI;
           flow.m_l4Proto = Flow::UDP;
-          flow.m_payloadSize = m_frameSize;
+          flow.m_payloadSize = 1500;
+          // flow.m_payloadSize = 2500;
           flow.m_stationId = staId;
-          flow.m_dataRate = m_dlFlowDataRate * 1 * 1e6;
+          flow.m_dataRate = 8 * 1 * 1e6;
           flow.m_direction = Flow::DOWNLINK;
           flow.m_dstPort = dstPort++;
           NS_LOG_DEBUG ("Adding flow " << flow);
           std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
           m_flows.push_back (flow);
-          }else if(staId == 4){ // file download DL
-          flow.m_ac = AC_BE;
+          }
+          else if(staId == 4){ // file download DL
+          flow.m_ac = AC_VI;
           flow.m_l4Proto = Flow::TCP;
-          flow.m_payloadSize = m_frameSize;
+          flow.m_payloadSize = 1500;
+          // flow.m_payloadSize = 2500;
           flow.m_stationId = staId;
-          flow.m_dataRate = m_dlFlowDataRate * 1 * 1e6;
+          flow.m_dataRate = 10 * 1 * 1e6;
           flow.m_direction = Flow::DOWNLINK;
           flow.m_dstPort = dstPort++;
           NS_LOG_DEBUG ("Adding flow " << flow);
           std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
           m_flows.push_back (flow);
-          }else if(staId == 5){ // haptic control DL
+          }
+          else if(staId == 5){ // haptic control DL
           flow.m_ac = AC_VO;
-          flow.m_l4Proto = Flow::TCP;
-          flow.m_payloadSize = m_frameSize;
+          flow.m_l4Proto = Flow::UDP;
+          flow.m_payloadSize = 64;
+          // flow.m_payloadSize = 2500;
           flow.m_stationId = staId;
-          flow.m_dataRate = m_dlFlowDataRate * 1 * 1e6;
+          flow.m_dataRate =  512*1e3; 
           flow.m_direction = Flow::DOWNLINK;
           flow.m_dstPort = dstPort++;
           NS_LOG_DEBUG ("Adding flow " << flow);
@@ -1011,9 +1022,10 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           if(staId == 1){ // video call UL                                                          
           flow.m_ac = AC_VI;
           flow.m_l4Proto = Flow::UDP;
-          flow.m_payloadSize = m_frameSize;
+          flow.m_payloadSize = 1500;
+          // flow.m_payloadSize = 2500;
           flow.m_stationId = staId;
-          flow.m_dataRate = m_ulFlowDataRate * 1 * 1e6;
+          flow.m_dataRate = 3 * 1 * 1e6;
           flow.m_direction = Flow::UPLINK;
           flow.m_dstPort = dstPort++;
           NS_LOG_DEBUG ("Adding flow " << flow);
@@ -1022,9 +1034,10 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           }else if(staId == 2){ // audio call UL
           flow.m_ac = AC_VO;
           flow.m_l4Proto = Flow::UDP;
-          flow.m_payloadSize = m_frameSize;
+          flow.m_payloadSize =  160;
+          // flow.m_payloadSize = 2500;
           flow.m_stationId = staId;
-          flow.m_dataRate = m_ulFlowDataRate * 1 * 1e6;
+          flow.m_dataRate =  64 * 1e3;
           flow.m_direction = Flow::UPLINK;
           flow.m_dstPort = dstPort++;
           NS_LOG_DEBUG ("Adding flow " << flow);
@@ -1032,10 +1045,11 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           m_flows.push_back (flow);
           }else if(staId == 5){ // Haptic UL(Audio, video and pos)
           flow.m_ac = AC_VO;
-          flow.m_l4Proto = Flow::TCP;
-          flow.m_payloadSize = m_frameSize;
+          flow.m_l4Proto = Flow::UDP;
+          flow.m_payloadSize = 64;
+          // flow.m_payloadSize = 2500;
           flow.m_stationId = staId;
-          flow.m_dataRate = m_ulFlowDataRate * 1 * 1e6;
+          flow.m_dataRate = 64*8*1e3;
           flow.m_direction = Flow::UPLINK;
           flow.m_dstPort = dstPort++;
           NS_LOG_DEBUG ("Adding flow " << flow);
@@ -1046,9 +1060,10 @@ WifiOfdmaExample::GenerateTrafficFlows ()
 
           flow.m_ac = AC_BE;
           flow.m_l4Proto = Flow::UDP;
-          flow.m_payloadSize = m_frameSize;
+          flow.m_payloadSize = 1500;//assuming 30fps
+          // flow.m_payloadSize = 2500;
           flow.m_stationId = staId;
-          flow.m_dataRate = m_ulFlowDataRate * 1 * 1e6;
+          flow.m_dataRate = 4 * 1 * 1e6;
           flow.m_direction = Flow::UPLINK;
           flow.m_dstPort = dstPort++;
           NS_LOG_DEBUG ("Adding flow " << flow);
@@ -1059,9 +1074,10 @@ WifiOfdmaExample::GenerateTrafficFlows ()
 
           flow.m_ac = AC_BE;
           flow.m_l4Proto = Flow::UDP;
-          flow.m_payloadSize = m_frameSize;
+          flow.m_payloadSize = 160;
+          // flow.m_payloadSize = 2500;
           flow.m_stationId = staId;
-          flow.m_dataRate = m_ulFlowDataRate * 1 * 1e6;
+          flow.m_dataRate = 64 * 1e3;
           flow.m_direction = Flow::UPLINK;
           flow.m_dstPort = dstPort++;
           NS_LOG_DEBUG ("Adding flow " << flow);
@@ -1069,6 +1085,7 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           m_flows.push_back (flow);
           }
         }
+    }
     }
     }
 
@@ -1415,10 +1432,12 @@ WifiOfdmaExample::Setup (void)
   ptr.Get<QosTxop> ()->SetTxopLimit (MicroSeconds (m_bkTxopLimit));
   ptr.Get<QosTxop> ()->GetWifiMacQueue ()->SetMaxDelay (MilliSeconds (m_bkMsduLifetime));
   ptr.Get<QosTxop> ()->GetBaManager ()->GetRetransmitQueue ()->SetMaxDelay (MilliSeconds (m_bkMsduLifetime));
+  // ptr.Get<QosTxop> ()->SetMinCw (50);
   dev->GetMac ()->GetAttribute ("VI_Txop", ptr);
   ptr.Get<QosTxop> ()->SetTxopLimit (MicroSeconds (m_viTxopLimit));
   ptr.Get<QosTxop> ()->GetWifiMacQueue ()->SetMaxDelay (MilliSeconds (m_viMsduLifetime));
   ptr.Get<QosTxop> ()->GetBaManager ()->GetRetransmitQueue ()->SetMaxDelay (MilliSeconds (m_bkMsduLifetime));
+  // ptr.Get<QosTxop> ()->SetMinCw (5);
   dev->GetMac ()->GetAttribute ("VO_Txop", ptr);
   ptr.Get<QosTxop> ()->SetTxopLimit (MicroSeconds (m_voTxopLimit));
   ptr.Get<QosTxop> ()->GetWifiMacQueue ()->SetMaxDelay (MilliSeconds (m_voMsduLifetime));
