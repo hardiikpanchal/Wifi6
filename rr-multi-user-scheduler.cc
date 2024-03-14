@@ -44,6 +44,9 @@ uint32_t UL_cycle_count = 0;
  uint64_t Notxcnt=0,DLtxcnt=0,ULtxcnt=0;
  bool startThrougputcalc = false;
  bool flag = true;
+ int ulstop_count = 0;
+ int tcount=0;
+  
 
 
 Ptr<WifiMacQueueItem> mpdu_stored;
@@ -595,7 +598,8 @@ RrMultiUserScheduler::TrySendingBasicTf (void)
         Ptr<const WifiMacQueueItem> mpdu_dummy;    
         if (m_apMac->GetQosTxop (ac)->GetBaAgreementEstablished (staIt->address, tid)){
             m_ul_candidates.push_back({staIt, mpdu_dummy}); 
-            break;    // terminate the for loop
+            std::cout<<"AID is "<<(staIt->aid)<<"\n";
+           break;    // terminate the for loop
         }            
         tid++;
       }      
@@ -608,6 +612,23 @@ std::cout <<"mulcandsize: "<<m_ul_candidates.size()<<"\n";
 
 std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_array;
 
+if(!m_enableBsrp){
+
+   for (const auto& candidate : m_ul_candidates)
+  //for (const auto& candidate : m_candidates)
+    {
+      if(candidate.first->address == "00:00:00:00:00:03" || candidate.first->address == "00:00:00:00:00:04" )continue;
+        uint8_t random_queue = (rand() % 20) + 1;
+        std::cout << "random queue of station: "<< candidate.first->address << " is :" << int(random_queue)  <<'\n';
+        maxBufferSize = std::max(maxBufferSize, static_cast<uint32_t> (random_queue * 256));
+        ulCandidates.emplace (random_queue, candidate); //Giving equal size when no bsrp to give fair allocation
+        }
+ 
+}
+else{
+
+uint8_t tid = 0;
+while(tid<8){
 
   for (const auto& candidate : m_ul_candidates)
   //for (const auto& candidate : m_candidates)
@@ -622,7 +643,7 @@ std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_arra
   //     uint8_t queueSize = static_cast<uint8_t> (std::ceil (std::min (bufferSize, 64769u) / 256.0));
 
 
-      uint8_t queueSize = m_apMac->GetMaxBufferStatus (candidate.first->address);
+      uint8_t queueSize = m_apMac->GetBufferStatus (tid,candidate.first->address);
       // q_array.push_back({queueSize, candidate});
       // i++;
 
@@ -649,19 +670,18 @@ std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_arra
           ulCandidates.emplace (queueSize, candidate); //multimap already puts them in sorted order(decreasing queue size)
         }
 
-        if(!m_enableBsrp){
-          uint8_t random_queue = (rand() % 20) + 1;
-          std::cout << "random queue of station: "<< candidate.first->address << " is :" << int(random_queue)  <<'\n';
-          maxBufferSize = std::max(maxBufferSize, static_cast<uint32_t> (random_queue * 256));
-          ulCandidates.emplace (random_queue, candidate); //Giving equal size when no bsrp to give fair allocation
-        }
+        
 
     }    
+tid++;
+}
+}
 
-  // if the maximum buffer size is 0, skip UL OFDMA and proceed with trying DL OFDMA
-
+ // if the maximum buffer size is 0, skip UL OFDMA and proceed with trying DL OFDMA
   if (maxBufferSize > 0 && !ulCandidates.empty())
     {
+      ulstop_count++;
+      
       NS_ASSERT (!ulCandidates.empty ());
       UL_cycle_count++;
       std::cout << "UL Cycle count: "<<UL_cycle_count << '\n';
@@ -676,8 +696,8 @@ std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_arra
       //   ul_scheduler = true;
       // }
 
-      std::string m_schedulerLogic_UL = "rr"; // Full bw
-      // std::string m_schedulerLogic_UL = "Bellalta"; // equal split
+      // std::string m_schedulerLogic_UL = "rr"; // Full bw
+      std::string m_schedulerLogic_UL = "Bellalta"; // equal split
       
 
       if(m_schedulerLogic_UL == "Bellalta"){
@@ -920,9 +940,17 @@ std::vector<std::pair<uint8_t, ns3::RrMultiUserScheduler::CandidateInfo>> q_arra
       trigger.SetCsRequired (true);
       m_heFem->SetTargetRssi (trigger);
       // set Preferred AC to the AC that gained channel access
+      std::cout << "AP EDCA access category: "<< unsigned(m_edca->GetAccessCategory ()) << "\n";
+      tcount++;
+   //   ns3::AcIndex ac_dummy = ((tcount&1 )? AC_BE: AC_VO);
+      ns3::AcIndex ac_dummy = AC_BE;
       for (auto& userInfo : trigger)
         {
-          userInfo.SetBasicTriggerDepUserInfo (0, 0, m_edca->GetAccessCategory ());
+
+          std::cout << "AID of user: " << userInfo.GetAid12() <<'\n';
+          // userInfo.SetBasicTriggerDepUserInfo (0, 0, m_edca->GetAccessCategory ());
+          
+          userInfo.SetBasicTriggerDepUserInfo (0, 0, ac_dummy);
         }
 
       packet = Create<Packet> ();
@@ -980,7 +1008,7 @@ RrMultiUserScheduler::TrySendingDlMuPpdu (void)
   NS_LOG_FUNCTION (this);
 
   AcIndex primaryAc = m_edca->GetAccessCategory ();
-  std::cout << "primaryac: "<< unsigned(primaryAc) << '\n';
+  std::cout << "dlprimaryac: "<< unsigned(primaryAc) << '\n';
 
   if (m_staList[primaryAc].empty ())
     {
@@ -1017,6 +1045,7 @@ RrMultiUserScheduler::TrySendingDlMuPpdu (void)
     {
       nCentral26TonesRus = 0;
     }
+
 
   uint8_t currTid = wifiAcList.at (primaryAc).GetHighTid ();
 
