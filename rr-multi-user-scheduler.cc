@@ -943,14 +943,14 @@ tid++;
       std::cout << "AP EDCA access category: "<< unsigned(m_edca->GetAccessCategory ()) << "\n";
       tcount++;
    //   ns3::AcIndex ac_dummy = ((tcount&1 )? AC_BE: AC_VO);
-      ns3::AcIndex ac_dummy = AC_BE;
+      // ns3::AcIndex ac_dummy = AC_;
       for (auto& userInfo : trigger)
         {
 
           std::cout << "AID of user: " << userInfo.GetAid12() <<'\n';
-          // userInfo.SetBasicTriggerDepUserInfo (0, 0, m_edca->GetAccessCategory ());
+          userInfo.SetBasicTriggerDepUserInfo (0, 0, m_edca->GetAccessCategory ());
           
-          userInfo.SetBasicTriggerDepUserInfo (0, 0, ac_dummy);
+          // userInfo.SetBasicTriggerDepUserInfo (0, 0, ac_dummy);
         }
 
       packet = Create<Packet> ();
