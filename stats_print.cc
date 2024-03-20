@@ -38,6 +38,8 @@
 #include "ns3/packet-sink-helper.h"
 #include "ns3/packet-sink.h"
 #include "ns3/on-off-helper.h"
+#include "ns3/bulk-send-helper.h"
+#include "ns3/bulk-send-application.h"
 #include "ns3/v4ping-helper.h"
 #include "ns3/multi-model-spectrum-channel.h"
 #include "ns3/wifi-mac-queue.h"
@@ -216,6 +218,10 @@ public:
    */
   void StartClient (OnOffHelper client, std::size_t i, Ptr<Node> node);
   /**
+   * Start a client application.
+   */
+  void StartClient_tcp (BulkSendHelper client, std::size_t i, Ptr<Node> node);
+  /**
    * Start an OBSS client application.
    */
   void StartObssClient (OnOffHelper client, uint16_t bss, Ptr<Node> node);
@@ -315,7 +321,7 @@ private:
   // double m_simulationTime{20}; // seconds
 //   bool graph_stats{true}; // If true we are simulating to gather data for plots
   double extrastoptime{100}; // Extra time simulator runs and then stops
-  double m_simulationTime{10}; // seconds
+  double m_simulationTime{4}; // seconds
   uint32_t m_startInterval{10};
   int m_na{5};
   std::string m_dlTraffic{"mu"};
@@ -332,12 +338,12 @@ private:
   WifiStandard m_obssStandard;
   double m_radius{0}; // meters
   bool m_enableDlOfdma{true};
-  bool m_forceDlOfdma{true};
+  bool m_forceDlOfdma{false};
   //enable ofdma
   bool m_enableUlOfdma{false};
   bool startThroughputcalc{false};
   bool m_enableTxopSharing{false};
-  bool m_enableBsrp{false};  
+  bool m_enableBsrp{true};  
    double prevTime=0,currTime;
  
    uint64_t recvPackets=0;
@@ -366,7 +372,7 @@ private:
   double m_rxGain{0.0}; // dBi
   double m_rxSensitivity{-91.0};
   uint16_t m_maxNRus{18}; // max number of RUs per MU PPDU
-  std::string m_heRate{"8"}; // "ideal" or MCS value
+  std::string m_heRate{"5"}; // "ideal" or MCS value
   uint16_t m_beMaxAmsduSize{0}; // maximum A-MSDU size for BE
   uint16_t m_bkMaxAmsduSize{0}; // maximum A-MSDU size for BK
   uint16_t m_viMaxAmsduSize{0}; // maximum A-MSDU size for VI
@@ -418,7 +424,7 @@ private:
   bool m_verbose{false};
   uint16_t m_nIntervals{20}; // number of intervals in which the simulation time is divided
   uint16_t m_elapsedIntervals{0};
-  std::string m_scheduler = "bellalta";
+  std::string m_scheduler = "rr";
 
   // rr - full bw usage(no bw waste)
   // bellalta - maximizes STA(there can be bw waste) equal split
@@ -879,7 +885,7 @@ WifiOfdmaExample::GenerateTrafficFlows ()
 
 
   //original code/////
-  bool haptic = true;
+  bool haptic = false;
 
   if(haptic == false){
 
@@ -888,17 +894,7 @@ WifiOfdmaExample::GenerateTrafficFlows ()
       if (m_dlTraffic != "None")
         {
           Flow flow;
-          // flow.m_ac = AC_BE;
-          // flow.m_l4Proto = Flow::UDP;
-          // flow.m_payloadSize = m_frameSize;
-          // flow.m_stationId = staId;
-          // flow.m_dataRate = 2 * 1 * 1e6;
-          // flow.m_direction = Flow::DOWNLINK;
-          // flow.m_dstPort = dstPort++;
-          // NS_LOG_DEBUG ("Adding flow " << flow);
-          // m_flows.push_back (flow);
-
-          flow.m_ac = AC_VO;
+          flow.m_ac = AC_BE;
           flow.m_l4Proto = Flow::UDP;
           flow.m_payloadSize = m_frameSize;
           flow.m_stationId = staId;
@@ -907,32 +903,46 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           flow.m_dstPort = dstPort++;
           NS_LOG_DEBUG ("Adding flow " << flow);
           m_flows.push_back (flow);
+
+          // flow.m_ac = AC_VO;
+          // flow.m_l4Proto = Flow::UDP;
+          // flow.m_payloadSize = m_frameSize;
+          // flow.m_stationId = staId;
+          // flow.m_dataRate = 1 * m_dlFlowDataRate * 1e6;
+          // flow.m_direction = Flow::DOWNLINK;
+          // flow.m_dstPort = dstPort++;
+          // NS_LOG_DEBUG ("Adding flow " << flow);
+          // m_flows.push_back (flow);
+
+          
         }
       if (m_ulTraffic != "None")
         {
           Flow flow; 
-          if(staId == 1) flow.m_ac = AC_VO;
-          if(staId == 2) flow.m_ac = AC_BE;
-          if(staId == 3) flow.m_ac = AC_VI;
-          flow.m_l4Proto = Flow::UDP;
-          flow.m_payloadSize = m_frameSize;
-          flow.m_stationId = staId;
-          flow.m_dataRate = m_ulFlowDataRate * 1e6;
-          flow.m_direction = Flow::UPLINK;
-          flow.m_dstPort = dstPort++;
-          NS_LOG_DEBUG ("Adding flow " << flow);
-          m_flows.push_back (flow);
-          
-          // Flow flow;
           // flow.m_ac = AC_BE;
           // flow.m_l4Proto = Flow::UDP;
           // flow.m_payloadSize = m_frameSize;
           // flow.m_stationId = staId;
-          // flow.m_dataRate = 0.5 * m_ulFlowDataRate * 1e6;
+          // flow.m_dataRate = 1 * m_ulFlowDataRate * 1e6;
           // flow.m_direction = Flow::UPLINK;
           // flow.m_dstPort = dstPort++;
           // NS_LOG_DEBUG ("Adding flow " << flow);
           // m_flows.push_back (flow);
+          
+          // if(staId ==1 ) flow.m_ac = AC_BE;
+          // else if(staId == 2) flow.m_ac = AC_VO;
+          // else if(staId == 3) flow.m_ac = AC_VI;
+          flow.m_ac = AC_BE;
+          if(staId == 2) flow.m_l4Proto = Flow::TCP;
+          else flow.m_l4Proto = Flow::UDP;
+          flow.m_payloadSize = m_frameSize;
+          flow.m_stationId = staId;
+          if(staId == 2) flow.m_dataRate = 15 * 1e6;
+          else flow.m_dataRate = 1 * m_ulFlowDataRate * 1e6;
+          flow.m_direction = Flow::UPLINK;
+          flow.m_dstPort = dstPort++;
+          NS_LOG_DEBUG ("Adding flow " << flow);
+          m_flows.push_back (flow);
         }
     }
 }
@@ -973,7 +983,7 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           m_flows.push_back (flow);
           }
           else if(staId == 3){ // Video streaming DL
-          flow.m_ac = AC_VI;
+          flow.m_ac = AC_BE;
           flow.m_l4Proto = Flow::UDP;
           flow.m_payloadSize = 1500;
           // flow.m_payloadSize = 2500;
@@ -986,12 +996,12 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           m_flows.push_back (flow);
           }
           else if(staId == 4){ // file download DL
-          flow.m_ac = AC_VI;
+          flow.m_ac = AC_BE;
           flow.m_l4Proto = Flow::TCP;
           flow.m_payloadSize = 1500;
           // flow.m_payloadSize = 2500;
           flow.m_stationId = staId;
-          flow.m_dataRate = 10 * 1 * 1e6;
+          flow.m_dataRate = 0.1 * 1 * 1e6;
           flow.m_direction = Flow::DOWNLINK;
           flow.m_dstPort = dstPort++;
           NS_LOG_DEBUG ("Adding flow " << flow);
@@ -1070,7 +1080,7 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
           m_flows.push_back (flow);
 
-          //////////////////
+          // //////////////////
 
           flow.m_ac = AC_BE;
           flow.m_l4Proto = Flow::UDP;
@@ -1187,6 +1197,10 @@ WifiOfdmaExample::Setup (void)
   // Try to minimize the chances of collision among flows
   Config::SetDefault ("ns3::FqCoDelQueueDisc::Perturbation", UintegerValue (9973));
   Config::SetDefault ("ns3::FqCoDelQueueDisc::EnableSetAssociativeHash", BooleanValue (true));
+
+  // Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpNewReno"));
+  Config::SetDefault("ns3::TcpL4Protocol::SocketType", StringValue("ns3::TcpCubic"));
+
 
   if (m_tcpSegmentSize != 0)
     {
@@ -1393,7 +1407,7 @@ WifiOfdmaExample::Setup (void)
           //  pcapHelper.EnablePcap("abcd");
       
           // phy.EnablePcap ("STA_phy_pcap", staDevices);
-          phy.EnablePcap ("bsrp_nodl_AP_phy_pcap", apDevice);
+          phy.EnablePcap ("1bsrp_nodl_AP_phy_pcap", apDevice);
         }
     }
 
@@ -2348,10 +2362,10 @@ WifiOfdmaExample::EstablishBaAgreement (Mac48Address bssid)
   int64_t slotUnits = pingInterval * std::pow (10, (Time::GetResolution () - Time::MS) * 3);
   // the start time is 4 pingIntervals from now and aligned to the next slot boundary
   int64_t startTime =
-      ((Simulator::Now ().GetTimeStep () + 4 * slotUnits) / slotUnits + 1) * slotUnits;
+      ((Simulator::Now ().GetTimeStep () + 4 * slotUnits) / slotUnits + 1) * slotUnits;//changed to 2 from 1
   Time startDelay = TimeStep (startTime) - Simulator::Now ();
 
-//   std::cout<<"1 slot time : "<<slotUnits<< " Start delay : "<<startDelay<<"\n";
+  std::cout<<"1 slot time : "<<slotUnits<< " Start delay : "<<startDelay<<"\n";
 
   NS_ASSERT (startDelay.IsStrictlyPositive ());
 
@@ -2360,14 +2374,15 @@ WifiOfdmaExample::EstablishBaAgreement (Mac48Address bssid)
     {
       // Install a client application for each flow involving the current station.
       // In case of TCP traffic, this will trigger the establishment of a TCP connection.
-      
+      std::string socketType =
+              (flow.m_l4Proto == Flow::TCP ? "ns3::TcpSocketFactory" : "ns3::UdpSocketFactory");
+          
       if (flow.m_stationId == m_currentSta + 1)
         {
         //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () << " Installing client application for flow " << i << '\n'; 
-          std::string socketType =
-              (flow.m_l4Proto == Flow::TCP ? "ns3::TcpSocketFactory" : "ns3::UdpSocketFactory");
-          OnOffHelper client
-           (socketType, Ipv4Address::GetAny ());
+          
+          if(flow.m_l4Proto == Flow::UDP){
+          OnOffHelper client (socketType, Ipv4Address::GetAny ());
 
 // ////////////////////////////////
           // double mean = 2;
@@ -2400,12 +2415,60 @@ WifiOfdmaExample::EstablishBaAgreement (Mac48Address bssid)
           InetSocketAddress dest (destAddress, flow.m_dstPort);
           dest.SetTos (acTos.at (flow.m_ac));
           client.SetAttribute ("Remote", AddressValue (dest));
+          std::cout << "startdelay: "<<startDelay <<"\n";
 
+///////////////////////extra code to change start delay for all flows
+//           int64_t startTime =
+//           ((Simulator::Now ().GetTimeStep () + 4 * slotUnits) / slotUnits + (i + 1)) * slotUnits;//changed to 2 from 1
+//           Time startDelay = TimeStep (startTime) - Simulator::Now ();
+// /////////////////////
 
         //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Scheduled the start of client application for station " << flow.m_stationId << 
         //   " with "<<(flow.m_direction==Flow::DOWNLINK?"Downlink":"Uplink") <<" flow from source node at memory location "<< srcNode <<'\n';
           Simulator::Schedule (startDelay, &WifiOfdmaExample::StartClient, this, client, i,
                                srcNode);
+          }
+          else{ //for TCP
+
+          // OnOffHelper client
+          //  (socketType, Ipv4Address::GetAny ());
+          uint32_t maxBytes = 500*8*1e6; // 500 MB file
+
+          BulkSendHelper client ("ns3::TcpSocketFactory", Ipv4Address::GetAny ());
+
+          client.SetAttribute("MaxBytes", UintegerValue(maxBytes));
+          client.SetAttribute("SendSize", UintegerValue(flow.m_payloadSize)); 
+          // Assuming flow.m_payloadSize is the payload size of each packet
+          
+          // client.SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
+          // client.SetAttribute ("OffTime",
+          //                      StringValue ("ns3::ConstantRandomVariable[Constant=" +
+          //                                   std::to_string (pingInterval / 1000.) + "]"));
+          // client.SetAttribute ("DataRate", DataRateValue (DataRate (flow.m_dataRate)));
+          // client.SetAttribute ("PacketSize", UintegerValue (flow.m_payloadSize));
+          Ipv4Address destAddress;
+          Ptr<Node> srcNode;
+
+
+          if (flow.m_direction == Flow::DOWNLINK)
+            {
+              destAddress = m_staInterfaces.GetAddress (m_currentSta);
+              srcNode = m_apNodes.Get (0);
+            }
+          else
+            {
+              destAddress = m_apInterfaces.GetAddress (0);
+              srcNode = m_staNodes.Get (m_currentSta);
+            }
+          InetSocketAddress dest (destAddress, flow.m_dstPort);
+          dest.SetTos (acTos.at (flow.m_ac));
+          client.SetAttribute ("Remote", AddressValue (dest));
+          // std::cout << "startdelay: "<<startDelay <<"\n";
+          Simulator::Schedule (startDelay, &WifiOfdmaExample::StartClient_tcp, this, client, i,
+                               srcNode);
+
+
+          }
         }
       i++;
     }
@@ -2472,6 +2535,17 @@ WifiOfdmaExample::StartClient (OnOffHelper client, std::size_t i, Ptr<Node> node
 }
 
 void
+WifiOfdmaExample::StartClient_tcp (BulkSendHelper client, std::size_t i, Ptr<Node> node)
+{
+  NS_LOG_FUNCTION (this << node->GetId ());
+  std::cout << "At time "<<Simulator::Now() <<" Calling StartClient_tcp function with node: "<< node <<'\n';
+
+  m_clientApps[i] = client.Install (node).Get (0);
+  m_clientApps[i]->SetStopTime (
+      Seconds (m_warmup + m_simulationTime + extrastoptime)); // let clients be active for a long time
+}
+
+void
 WifiOfdmaExample::StartObssClient (OnOffHelper client, uint16_t bss, Ptr<Node> node)
 {
   NS_LOG_FUNCTION (this << node->GetId ());
@@ -2526,6 +2600,7 @@ WifiOfdmaExample::DelayStart (void)
       //   offTime = 0.000230168;
       // }else{
         // std::cout << "notinf"<<"\n";
+      std::cout << "startdelayrv: "<< startDelayRV->GetValue () <<'\n';
       offTime = maxIdt + (startDelayRV->GetValue () / 1000.) - (pktSize.Get () * 8. / (cbrRate.Get ().GetBitRate ())) + 50e-9;
       // }
       // we add 50 nanoseconds to offTime to prevent it from being zero, which
@@ -2533,11 +2608,11 @@ WifiOfdmaExample::DelayStart (void)
       // In such a case, at the next slot boundary both the "On" and the "Off"
       // periods would be zero and this would cause an infinite loop
 
-      std::cout << "OFFTIME: "<<offTime<<'\n';
+      // std::cout << "OFFTIME: "<<offTime<<'\n';
       // if(m_dlFlowDataRate == 0){
       //   offTime = 0.000230168;
       // }
-      std::cout << "OFFTIME: "<<offTime<<'\n';
+      // std::cout << "OFFTIME: "<<offTime<<'\n';
       NS_ASSERT (offTime > 0);
       // clientApp->
 
@@ -2546,7 +2621,7 @@ WifiOfdmaExample::DelayStart (void)
       std::stringstream ss;
       ss << "ns3::ConstantRandomVariable[Constant=" << std::fixed << std::setprecision (10)
          << offTime << "]";
-      std::cout <<"ksjhsabjn"<<"\n";
+      // std::cout <<"ksjhsabjn"<<"\n";
       clientApp->SetAttribute ("OffTime", StringValue (ss.str ()));
     }
 
@@ -2635,13 +2710,13 @@ WifiOfdmaExample::StartTraffic (void)
 
 
       ////////////////////////////
-      double scale = 2.0;
-      double shape = 3.0;
-      Ptr<WeibullRandomVariable> x = CreateObject<WeibullRandomVariable> ();
-      x->SetAttribute ("Scale", DoubleValue (scale));
-      x->SetAttribute ("Shape", DoubleValue (shape));
-      double value = x->GetValue ();
-      std::cout << "weibull: "<<value << '\n';
+      // double scale = 2.0;
+      // double shape = 3.0;
+      // Ptr<WeibullRandomVariable> x = CreateObject<WeibullRandomVariable> ();
+      // x->SetAttribute ("Scale", DoubleValue (scale));
+      // x->SetAttribute ("Shape", DoubleValue (shape));
+      // double value = x->GetValue ();
+      // std::cout << "weibull: "<<value << '\n';
 
       
 /////////////////////////////
@@ -2649,20 +2724,24 @@ WifiOfdmaExample::StartTraffic (void)
       // clientApp->SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant="
       //                                                 + onTime + "]"));
 
-      clientApp->SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0]"));
+      // clientApp->SetAttribute ("OffTime", StringValue ("ns3::ConstantRandomVariable[Constant=0.08]"));
       
       
-      // clientApp->SetAttribute("OffTime", StringValue("ns3::LogNormalRandomVariable[Mu=0.04, Sigma = 0.003]"));
+      // clientApp->SetAttribute("OffTime", StringValue("ns3::LogNormalRandomVariable[Mu=0.04|Sigma=0.003]"));
       // clientApp->SetAttribute("OnTime", StringValue("ns3::LogNormalRandomVariable[Mu=0.4, Sigma = 0.03]"));
 
       // clientApp->SetAttribute("MaxBytes", UintegerValue(30000));
 
-      // clientApp->SetAttribute ("OnTime", StringValue ("ns3::UniformRandomVariable[Min=0.5|Max=2]"));
+      clientApp->SetAttribute ("OffTime", StringValue ("ns3::UniformRandomVariable[Min=0.05|Max=0.1]"));
 
-      clientApp->SetAttribute("OnTime", StringValue("ns3::WeibullRandomVariable[Shape=3.0|Scale=2.0]"));
+      clientApp->SetAttribute ("OnTime", StringValue ("ns3::UniformRandomVariable[Min=0.5|Max=1]"));
+      // clientApp->SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant = 1]"));
+      
+
+      // clientApp->SetAttribute("OnTime", StringValue("ns3::WeibullRandomVariable[Shape=3.0|Scale=2.0]"));
 
       // clientApp->SetAttribute("OnTime", StringValue("ns3::NormalRandomVariable[Mean=2.0|Variance=0.1]"));
-      std::cout << "nodenode: " << clientApp->GetNode() << '\n';
+      // std::cout << "nodenode: " << clientApp->GetNode() << '\n';
 
     // h++;
     }
@@ -2694,7 +2773,7 @@ WifiOfdmaExample::StartStatistics (void)
 {
   NS_LOG_FUNCTION (this);
 
-//   std::cout << "Starting statistics at " << Simulator::Now ().GetMicroSeconds() << std::endl;
+  std::cout << "Starting statistics at " << Simulator::Now ().GetMicroSeconds() << std::endl;
   /* Connect traces on all the stations (including the AP) and for all the ACs */
   NetDeviceContainer devices = m_staDevices;
   devices.Add (m_apDevices.Get (0));
@@ -2747,6 +2826,7 @@ WifiOfdmaExample::StartStatistics (void)
 
   for (std::size_t i = 0; i < m_flows.size (); i++)
     {
+      if(m_flows[i].m_l4Proto == Flow::UDP){
       Ptr<OnOffApplication> sender = DynamicCast<OnOffApplication> (m_clientApps[i]);
       NS_ABORT_MSG_IF (sender == 0, "Not an OnOffApplication?");
       sender->TraceConnectWithoutContext ("Tx", MakeCallback (&WifiOfdmaExample::NotifyAppTx, this)
@@ -2758,6 +2838,22 @@ WifiOfdmaExample::StartStatistics (void)
       sink->TraceConnectWithoutContext ("Rx", MakeCallback (&WifiOfdmaExample::NotifyAppRx, this)
                                               .Bind (i));
       m_flows[i].m_prevRxBytes = sink->GetTotalRx ();
+      }else{ // for bulksendtcp
+      
+      Ptr<BulkSendApplication> sender = DynamicCast<BulkSendApplication> (m_clientApps[i]);
+      NS_ABORT_MSG_IF (sender == 0, "Not an BulkSendApplication?");
+      sender->TraceConnectWithoutContext ("Tx", MakeCallback (&WifiOfdmaExample::NotifyAppTx, this)
+                                                .Bind (i));
+      // m_flows[i].m_packetsRejectedBySocket = sender->GetTotalPacketsFailed ();
+
+      Ptr<PacketSink> sink = DynamicCast<PacketSink> (m_sinkApps.Get (i));
+      NS_ABORT_MSG_IF (sink == 0, "Not a PacketSink?");
+      sink->TraceConnectWithoutContext ("Rx", MakeCallback (&WifiOfdmaExample::NotifyAppRx, this)
+                                              .Bind (i));
+      m_flows[i].m_prevRxBytes = sink->GetTotalRx ();
+
+
+      }
     }
 
   for (std::size_t i = 0; i <= m_nStations; i++)
@@ -2925,6 +3021,7 @@ WifiOfdmaExample::StopStatistics (void)
 
   for (std::size_t i = 0; i < m_flows.size (); i++)
     {
+      if(m_flows[i].m_l4Proto == Flow::UDP){
       Ptr<OnOffApplication> sender = DynamicCast<OnOffApplication> (m_clientApps[i]);
       NS_ABORT_MSG_IF (sender == 0, "Not an OnOffApplication?");
       sender->TraceDisconnectWithoutContext ("Tx", MakeCallback (&WifiOfdmaExample::NotifyAppTx, this)
@@ -2936,6 +3033,20 @@ WifiOfdmaExample::StopStatistics (void)
       NS_ABORT_MSG_IF (sink == 0, "Not a PacketSink?");
       sink->TraceDisconnectWithoutContext ("Rx", MakeCallback (&WifiOfdmaExample::NotifyAppRx, this)
                                                  .Bind (i));
+      }else{
+      Ptr<BulkSendApplication> sender = DynamicCast<BulkSendApplication> (m_clientApps[i]);
+      NS_ABORT_MSG_IF (sender == 0, "Not an BulkSendApplication?");
+      sender->TraceDisconnectWithoutContext ("Tx", MakeCallback (&WifiOfdmaExample::NotifyAppTx, this)
+                                                   .Bind (i));
+      // m_flows[i].m_packetsRejectedBySocket = sender->GetTotalPacketsFailed ()
+      //                                        - m_flows[i].m_packetsRejectedBySocket;
+
+      Ptr<PacketSink> sink = DynamicCast<PacketSink> (m_sinkApps.Get (i));
+      NS_ABORT_MSG_IF (sink == 0, "Not a PacketSink?");
+      sink->TraceDisconnectWithoutContext ("Rx", MakeCallback (&WifiOfdmaExample::NotifyAppRx, this)
+                                                 .Bind (i));
+
+      }
     }
 
   for (std::size_t i = 0; i <= m_nStations; i++)
@@ -3363,7 +3474,7 @@ WifiOfdmaExample::NotifyAppTx (std::size_t i, Ptr<const Packet> packet)
   prev_tx = Simulator::Now().GetMicroSeconds();
   m_flows[i].m_txBytes += packet->GetSize ();
   // m_flows[i].m_txPackets++;
-  std::cout << "Packet size at APP: " << packet->GetSize () << "\n";
+  // std::cout << "Packet size at APP: " << packet->GetSize () << "\n";
   
 
   bool inserted;
@@ -3408,6 +3519,7 @@ WifiOfdmaExample::NotifyAppRx (std::size_t i, Ptr<const Packet> packet, const Ad
     Throughputs.push_back(thru);
 
   }
+
   if (m_flows[i].m_l4Proto == Flow::UDP)
     {
       // there must be a unique packet with the same UID as the received packet
@@ -3488,8 +3600,8 @@ WifiOfdmaExample::NotifyEdcaEnqueue (Ptr<const WifiMacQueueItem> item)
   auto mapIt=temp.first;
 
   // if(temp.second){
-      uint32_t xsize = item->GetPacket()->GetSize();
-      std::cout << "Packet size at MAC :" << xsize << "\n";
+      // uint32_t xsize = item->GetPacket()->GetSize();
+      // std::cout << "Packet size at MAC :" << xsize << "\n";
   //         m_flows[0].m_txBytes_mac += item->GetPacket()->GetSize();
   //         m_flows[0].m_txPackets_mac++;
   //     // if(xsize == 1536){
@@ -3516,7 +3628,7 @@ void
 WifiOfdmaExample::NotifyMacForwardUp (Ptr<const Packet> p)
 {
   mac_rx++;
-  std::cout << "NotifyMacForwardUp" << mac_rx << '\n';
+  // std::cout << "NotifyMacForwardUp" << mac_rx << '\n';
   
    
     auto it1 = m_flows[0].packetsinFlow_mac.m_samples.find({p->GetUid (),false});
@@ -3529,7 +3641,7 @@ WifiOfdmaExample::NotifyMacForwardUp (Ptr<const Packet> p)
   if (mapIt == m_inFlightPacketMap.end ())
     {
       NS_LOG_WARN ("No packet with UID " << p->GetUid () << " is currently in flight");
-      std::cout << "No packet with UID " << p->GetUid () << " is currently in flight" << '\n';
+      // std::cout << "No packet with UID " << p->GetUid () << " is currently in flight" << '\n';
       return;
     }
 
@@ -3540,7 +3652,7 @@ WifiOfdmaExample::NotifyMacForwardUp (Ptr<const Packet> p)
   if (listIt == mapIt->second.end ())
     {
       NS_LOG_WARN ("Forwarding up a packet that has not been enqueued?");
-      std::cout << "Forwarding up a packet that has not been enqueued?" << '\n';
+      // std::cout << "Forwarding up a packet that has not been enqueued?" << '\n';
       return;
     }
 
