@@ -326,11 +326,11 @@ private:
   // double m_simulationTime{20}; // seconds
 //   bool graph_stats{true}; // If true we are simulating to gather data for plots
   double extrastoptime{100}; // Extra time simulator runs and then stops
-  double m_simulationTime{15}; // seconds
+  double m_simulationTime{16}; // seconds
   uint32_t m_startInterval{10};
   int m_na{5};
   std::string m_dlTraffic{"mu"};
-  std::string m_ulTraffic{"su"};
+  std::string m_ulTraffic{"mu"};
   double m_ulFlowDataRate{1}; // If -1, full queues
   double m_dlFlowDataRate{1}; // If -1, full queues
   // duration of the interval in which apps can start sending packets (ms)
@@ -431,7 +431,7 @@ private:
   uint16_t m_nIntervals{20}; // number of intervals in which the simulation time is divided
   uint16_t m_elapsedIntervals{0};
   // std::string m_scheduler = "rr";
-  std::string m_dlscheduler = "rr"; 
+  std::string m_dlscheduler = "bellalta"; 
   std::string m_ulscheduler = "rr";
   // std::string m_ulscheduler = "rr";
  
@@ -701,6 +701,7 @@ WifiOfdmaExample::Config (int argc, char *argv[])
   cmd.AddValue ("ackSeqType", "ACK Sequence to employ for DL tx", m_dlAckSeqType);
   cmd.AddValue ("maxTxopDuration", "TXOP duration for BE in microseconds", m_beTxopLimit);
   cmd.AddValue ("simulationTime", "Time to simulate", m_simulationTime);
+  cmd.AddValue ("m_enableBsrp", "BSRP on or off", m_enableBsrp);
   cmd.Parse (argc, argv);
 
   std::cout << "DL Scheduler " << m_dlscheduler << '\n';
@@ -3700,6 +3701,8 @@ WifiOfdmaExample::NotifyEdcaEnqueue (Ptr<const WifiMpdu> mpdu)
     {
       return;
     }
+
+  
   // init a map entry if the packet's UID is not present
   auto temp = 
  
