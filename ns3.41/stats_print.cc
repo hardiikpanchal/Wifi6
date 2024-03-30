@@ -155,6 +155,7 @@ public:
     double m_dataRate;        // b/s
     /* Measured end-to-end metrics */
     Stats<double> m_latency;
+    
 
     PacketsinFlow packetsinFlow, packetsinFlow_mac;
     Stats<std::pair<uint64_t /* UID */,double> > appLatencies;
@@ -326,7 +327,7 @@ private:
   // double m_simulationTime{20}; // seconds
 //   bool graph_stats{true}; // If true we are simulating to gather data for plots
   double extrastoptime{100}; // Extra time simulator runs and then stops
-  double m_simulationTime{16}; // seconds
+  double m_simulationTime{10}; // seconds
   uint32_t m_startInterval{10};
   int m_na{5};
   std::string m_dlTraffic{"mu"};
@@ -352,7 +353,7 @@ private:
    double prevTime=0,currTime;
  
    uint64_t recvPackets=0;
-   std::multimap< ns3::Time,uint64_t> tcptime;
+  //  std::multimap< ns3::Time,uint64_t> tcptime;
    
   bool m_useCentral26TonesRus {false};
   uint32_t m_ulPsduSize{2000}; // bytes
@@ -417,8 +418,8 @@ private:
   // uint32_t m_viMuEdcaTimer{0}; // microseconds
   // uint32_t m_voMuEdcaTimer{0}; // microseconds
   bool m_enableRts{false};
-  // std::string m_dlAckSeqType{"AGGR-MU-BAR"};
-  std::string m_dlAckSeqType{"ACK-SU-FORMAT"};
+  std::string m_dlAckSeqType{"AGGR-MU-BAR"};
+  // std::string m_dlAckSeqType{"ACK-SU-FORMAT"};
   uint16_t m_baBufferSize{256};
   std::string m_queueDisc{"default"};
   bool m_enablePcap{true};
@@ -431,7 +432,7 @@ private:
   uint16_t m_nIntervals{20}; // number of intervals in which the simulation time is divided
   uint16_t m_elapsedIntervals{0};
   // std::string m_scheduler = "rr";
-  std::string m_dlscheduler = "bellalta"; 
+  std::string m_dlscheduler = "rr"; 
   std::string m_ulscheduler = "rr";
   // std::string m_ulscheduler = "rr";
  
@@ -897,7 +898,7 @@ WifiOfdmaExample::GenerateTrafficFlows ()
 
 
   //original code/////
-  bool haptic = false;
+  bool haptic = true;
 
   if(haptic == false){
 
@@ -906,10 +907,8 @@ WifiOfdmaExample::GenerateTrafficFlows ()
       if (m_dlTraffic != "None")
         {
           Flow flow;
-          flow.m_ac = AC_BE;
-          // if(staId == 2 || staId == 3) flow.m_ac = AC_BE;
-          flow.m_l4Proto = Flow::UDP;
-           
+          flow.m_ac = AC_VO;
+          flow.m_l4Proto = Flow::TCP;
           flow.m_payloadSize = m_frameSize;
           flow.m_stationId = staId;
           flow.m_dataRate = 1 * m_dlFlowDataRate * 1e6;
@@ -933,6 +932,8 @@ WifiOfdmaExample::GenerateTrafficFlows ()
       if (m_ulTraffic != "None")
         {
           Flow flow; 
+
+          // if(staId == 2){
           // flow.m_ac = AC_BE;
           // flow.m_l4Proto = Flow::UDP;
           // flow.m_payloadSize = m_frameSize;
@@ -942,6 +943,7 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           // flow.m_dstPort = dstPort++;
           // NS_LOG_DEBUG ("Adding flow " << flow);
           // m_flows.push_back (flow);
+          // }
           
           // if(staId ==1 ) flow.m_ac = AC_BE;
           // else if(staId == 2) flow.m_ac = AC_BE;
@@ -955,9 +957,8 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           // NS_LOG_DEBUG ("Adding flow " << flow);
           // m_flows.push_back (flow);
 
-          flow.m_ac = AC_BE;
-          // if(staId == 2 || staId == 3) flow.m_ac = AC_VI;
-          flow.m_l4Proto = Flow::UDP;
+          flow.m_ac = AC_VO;
+          flow.m_l4Proto = Flow::TCP;
           flow.m_payloadSize = m_frameSize;
           flow.m_stationId = staId;
           flow.m_dataRate = 1 * m_ulFlowDataRate * 1e6;
@@ -1020,7 +1021,7 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           }
           else if(staId == 4){ // file download DL
           flow.m_ac = AC_BE;
-          flow.m_l4Proto = Flow::UDP;
+          flow.m_l4Proto = Flow::TCP;
           flow.m_payloadSize = 1500;
           // flow.m_payloadSize = 2500;
           flow.m_stationId = staId;
@@ -1981,6 +1982,7 @@ uint64_t rx_bytes_mac = 0;
     os << "Total Received bytes at MAC(DL + UL): " << rx_bytes_mac << '\n';
     os << "Total Transmitted bytes at MAC(DL + UL): " << tx_bytes_mac << '\n';
 
+
     // os << "Total dropped bytes at App(DL): " << tx_bytes_app_dl - rx_bytes_app_dl << '\n';
     // os << "Total dropped bytes at App(UL): " << tx_bytes_app_ul - rx_bytes_app_ul << '\n';
 
@@ -1991,6 +1993,13 @@ os << "Throughput per 1000 packets " << thru << '\n';
 
     
   }
+
+  // for (auto temp:tcptime){
+
+  //   std::cout<< "Enqueue time : "<<temp.first<<" Packet count: "<< tcptime.count(temp.first)<<"\n";
+  // }
+
+  // for(auto it = tcptime.begin();)
 
   os << " Last Packet Received at (ms) " << prev_rx << '\n';
      
@@ -3670,11 +3679,11 @@ WifiOfdmaExample::NotifyAppRx (std::size_t i, Ptr<const Packet> packet, const Ad
             //  if (it1 != m_flows[i].packetsinFlow.m_samples.end ()){
             //     m_flows[i].packetsinFlow.m_samples.erase({packet->GetUid (),false});
             //     m_flows[i].packetsinFlow.m_samples.insert({packet->GetUid (),true});
-            
+
             //  }
              m_flows[i].m_rxPackets++; // incrementing received pkts count if it is found in inflightpackets
              m_flows[i].m_rxBytes += packet->GetSize ();
-  
+
 
              
             }
@@ -3733,7 +3742,7 @@ WifiOfdmaExample::NotifyEdcaEnqueue (Ptr<const WifiMpdu> mpdu)
   info.m_ptrToPacket = mpdu->GetPacket ();
   info.m_edcaEnqueueTime = Simulator::Now ();
   //add suitable condition
- //if() tcptime.insert({info.m_edcaEnqueueTime,mpdu->GetPacket()->GetUid()});
+  // tcptime.insert({info.m_edcaEnqueueTime,mpdu->GetPacket()->GetUid()});
   mapIt->second.insert (mapIt->second.end (), info);
 }
 
