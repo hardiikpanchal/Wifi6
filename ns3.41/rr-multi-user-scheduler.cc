@@ -228,6 +228,8 @@ RrMultiUserScheduler::GetTxVectorForUlMu(Func canBeSolicited, bool isbasictf)
     std::cout << "m_staListUL size: "<<m_staListUl.size() <<"\n";
     auto count = std::min<std::size_t>(m_nStations, m_staListUl.size());
     std::size_t nCentral26TonesRus;
+    std::size_t limit = 9;
+    count = std::min(count, limit);
     HeRu::GetEqualSizedRusForStations(m_allowedWidth, count, nCentral26TonesRus, scheduler_x);
     NS_ASSERT(count >= 1);
 
@@ -354,6 +356,8 @@ RrMultiUserScheduler::GetTxVectorForUlMu(Func canBeSolicited, bool isbasictf)
     std::cout << "m_staListUL size: "<<m_staListUl.size() <<"\n";
     auto count = std::min<std::size_t>(m_nStations, m_staListUl.size());
     std::size_t nCentral26TonesRus;
+    std::size_t limit = 9;
+    count = std::min(limit, count);
     HeRu::GetEqualSizedRusForStations(m_allowedWidth, count, nCentral26TonesRus, scheduler_x);
     NS_ASSERT(count >= 1);
 
@@ -574,7 +578,8 @@ RrMultiUserScheduler::TrySendingBasicTf()
         std::cout << "basic mlinkID: "<< unsigned(m_linkId)<<"\n";
         std::cout << "basic size of stalist: "<<staList.size()<<"\n";
         std::cout << "max buffer status of: "<<info.address <<" is "<<unsigned(m_apMac->GetMaxBufferStatus(info.address))<<"\n";
-        return staList.find(info.aid) != staList.cend() && m_apMac->GetMaxBufferStatus(info.address) > 0;
+        if(m_enableBsrp) return staList.find(info.aid) != staList.cend() && m_apMac->GetMaxBufferStatus(info.address) > 0;
+        return staList.find(info.aid) != staList.cend();
     }, true); // when BSRP is off all stations will go through as they have 255 queue
 
     if (txVector.GetHeMuUserInfoMap().empty())
@@ -1059,6 +1064,8 @@ RrMultiUserScheduler::FinalizeTxVector(WifiTxVector& txVector, std::string sched
         // compute how many stations can be granted an RU and the RU size
         std::size_t nRusAssigned = m_candidates.size();
         std::size_t nCentral26TonesRus;
+        std::size_t limit = 9;
+        nRusAssigned = std::min(nRusAssigned, limit);
         HeRu::RuType ruType =
             HeRu::GetEqualSizedRusForStations(m_allowedWidth, nRusAssigned, nCentral26TonesRus, scheduler_x);
 
@@ -1121,6 +1128,8 @@ RrMultiUserScheduler::FinalizeTxVector(WifiTxVector& txVector, std::string sched
         // compute how many stations can be granted an RU and the RU size
         std::size_t nRusAssigned = m_candidates.size();
         std::size_t nCentral26TonesRus;
+        std::size_t limit = 9;
+        nRusAssigned = std::min(nRusAssigned, limit);
         HeRu::RuType ruType =
             HeRu::GetEqualSizedRusForStations(m_allowedWidth, nRusAssigned, nCentral26TonesRus, scheduler_x);
     
@@ -1180,6 +1189,8 @@ RrMultiUserScheduler::FinalizeTxVector(WifiTxVector& txVector, std::string sched
         // compute how many stations can be granted an RU and the RU size
         std::size_t nRusAssigned = m_candidates.size();
         std::size_t nCentral26TonesRus;
+        std::size_t limit = 9;
+        nRusAssigned = std::min(nRusAssigned, limit);
         HeRu::RuType ruType =
             HeRu::GetEqualSizedRusForStations(m_allowedWidth, nRusAssigned, nCentral26TonesRus, scheduler_x);
     
