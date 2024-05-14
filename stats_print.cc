@@ -404,7 +404,7 @@ private:
    
   bool m_useCentral26TonesRus {false};
   uint32_t m_ulPsduSize{2000}; // bytes
-  uint16_t m_channelWidth{20}; // channel bandwidth (MHz)
+  uint16_t m_channelWidth{40}; // channel bandwidth (MHz)
   uint8_t m_channelNumber{36};
   WifiPhyBand m_band {WIFI_PHY_BAND_UNSPECIFIED};
   uint16_t m_guardInterval{800}; // GI in nanoseconds
@@ -479,7 +479,7 @@ private:
   uint16_t m_nIntervals{20}; // number of intervals in which the simulation time is divided
   uint16_t m_elapsedIntervals{0};
   // std::string m_scheduler = "rr";
-  std::string m_dlscheduler = "bellalta"; 
+  std::string m_dlscheduler = "rr"; 
   std::string m_ulscheduler = "rr";
   // std::string m_ulscheduler = "rr";
  
@@ -509,6 +509,7 @@ private:
 
   std::vector<uint64_t> m_obssDlRxStart, m_obssDlRxStop;
   std::vector<uint64_t> m_obssUlRxStart, m_obssUlRxStop;
+  Stats<double> m_ulMuCompleteness;
   Stats<double> m_dlMuCompleteness; // ratio of actual amount of bytes to max amount of bytes
                                     // (given its duration) carried in a DL MU PPDU
   Stats<double> m_dlMuPpduDuration; // TX duration (ms) of DL MU PPDUs
@@ -958,7 +959,7 @@ WifiOfdmaExample::GenerateTrafficFlows ()
       if (m_dlTraffic != "None")
         {
           Flow flow;
-          flow.m_ac = AC_VO;
+          flow.m_ac = AC_BE;
           flow.m_l4Proto = Flow::UDP;
           flow.m_payloadSize = 1500;
           flow.m_stationId = staId;
@@ -980,7 +981,7 @@ WifiOfdmaExample::GenerateTrafficFlows ()
 
           
         }
-      if (m_ulTraffic != "None")
+      if (m_ulTraffic != "None" && false)
         {
           Flow flow; 
           // if(staId == 2){
@@ -1007,7 +1008,7 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           // NS_LOG_DEBUG ("Adding flow " << flow);
           // m_flows.push_back (flow);
 
-          flow.m_ac = AC_VO;
+          flow.m_ac = AC_BE;
           flow.m_l4Proto = Flow::UDP;
           flow.m_payloadSize = 1500;
           flow.m_stationId = staId;
@@ -2374,6 +2375,11 @@ WifiOfdmaExample::PrintResults (std::ostream &os)
      << m_dlMuCompleteness << std::endl
      << std::endl;
 
+  os << "UL MU PPDU completeness (percentiles[count])" << std::endl
+     << "------------------------------" << std::endl
+     << m_ulMuCompleteness << std::endl
+     << std::endl;
+
   os << "HE TB PPDU completeness (percentiles[count])" << std::endl
      << "------------------------------" << std::endl
      << m_heTbCompleteness << std::endl
@@ -3469,164 +3475,164 @@ WifiOfdmaExample::NotifyMsduDequeuedFromEdcaQueue (Time maxDelay, Ptr<const Wifi
 
 void 
 WifiOfdmaExample::NotifyPpduForwardedDown (Ptr<WifiPpdu> ppdu, WifiTxVector txVector, double txPowerW){
+
+  /////////////////////////////////Old code/////////////////////////////////////////////
   
-  std::cout << "PPDU forwarded down tx duration: "<<ppdu->GetTxDuration()<<"\n";
+  // std::cout << "PPDU forwarded down tx duration: "<<ppdu->GetTxDuration()<<"\n";
+
+  // ns3::Time ppduduration = ppdu->GetTxDuration();
+  // ns3::Time psduduration = Seconds(0);
   
-  //////////////////////////////////////////////////////////
-  WifiConstPsduMap psduMap = ppdu->GetPsduMap();
+  // //////////////////////////////////////////////////////////
+  // WifiConstPsduMap psduMap = ppdu->GetPsduMap();
 
-  Ptr<WifiNetDevice> dev = DynamicCast<WifiNetDevice> (m_apDevices.Get (0));
-  Mac48Address apAddress = dev->GetMac ()->GetAddress ();
+  // Ptr<WifiNetDevice> dev = DynamicCast<WifiNetDevice> (m_apDevices.Get (0));
+  // Mac48Address apAddress = dev->GetMac ()->GetAddress ();
 
-  if (psduMap.size () == 1 && psduMap.begin ()->second->GetAddr1 () == apAddress)
-    {
-      // Uplink frame
-      const WifiMacHeader &hdr = psduMap.begin ()->second->GetHeader (0);
+  // if (psduMap.size () == 1 && psduMap.begin ()->second->GetAddr1 () == apAddress)
+  //   {
+  //     // Uplink frame
+  //     const WifiMacHeader &hdr = psduMap.begin ()->second->GetHeader (0);
 
-      ns3::Time ul_psduDurationSum = Seconds(0);
+  //     ns3::Time ul_psduDurationSum = Seconds(0);
 
-      if (txVector.GetPreambleType () == WIFI_PREAMBLE_HE_TB)
-        {
-          // HE TB PPDU
-          if (hdr.HasData () || hdr.IsBlockAckReq ())
-            {
-              for (auto &staIdPsdu : psduMap)
-                {
-                if (staIdPsdu.second->GetSize () > 0)
-                  {
-                    Time txDuration = WifiPhy::CalculateTxDuration (staIdPsdu.second->GetSize (),
-                                                                  txVector, m_band,
-                                                                  staIdPsdu.first);
-                    ul_psduDurationSum += txDuration;
-                    // std::cout << "txduration in for loop: "<<txDuration <<"\n";
-                  }
-            }
+  //     if (txVector.GetPreambleType () == WIFI_PREAMBLE_HE_TB)
+  //       {
+  //         // HE TB PPDU
+  //         if (hdr.HasData () || hdr.IsBlockAckReq ())
+  //           {
+  //             for (auto &staIdPsdu : psduMap)
+  //               {
+  //               if (staIdPsdu.second->GetSize () > 0)
+  //                 {
+  //                   Time txDuration = WifiPhy::CalculateTxDuration (staIdPsdu.second->GetSize (),
+  //                                                                 txVector, m_band,
+  //                                                                 staIdPsdu.first);
+  //                   ul_psduDurationSum += txDuration;
+  //                   }
+  //           }
 
             
-            std::cout << "ul_psduDurationSum: "<< ul_psduDurationSum<<"\n";
+  //           std::cout << "ul_psduDurationSum: "<< ul_psduDurationSum<<"\n";
           
               
-              Time txDuration = WifiPhy::CalculateTxDuration (psduMap.begin ()->second->GetSize (),
-                                                              txVector, m_band,
-                                                              psduMap.begin ()->first);
-              std::cout << "txduration outside for loop: "<<txDuration<<"\n";
-              
-              
-              AcIndex ac = AC_UNDEF;
-              if (hdr.IsBlockAckReq ())
-                {
-                  CtrlBAckRequestHeader baReqHdr;
-                  psduMap.begin ()->second->GetPayload (0)->PeekHeader (baReqHdr);
-                  ac = QosUtilsMapTidToAc (baReqHdr.GetTidInfo ());
-                }
+  //             Time txDuration = WifiPhy::CalculateTxDuration (psduMap.begin ()->second->GetSize (),
+  //                                                             txVector, m_band,
+  //                                                             psduMap.begin ()->first);
 
-              auto itPair = GetPairwisePerAcStats (hdr, ac);
-              if (itPair.second)
-                {
-                  // itPair.first->second.ampduRatio.AddSample (currRatio);
-                }
-            }
-          else if (hdr.GetType () == WIFI_MAC_QOSDATA_NULL)
-            {
-              // m_countOfNullResponsesToLastTf++;
-            }
-        }
+  //             AcIndex ac = AC_UNDEF;
+  //             if (hdr.IsBlockAckReq ())
+  //               {
+  //                 CtrlBAckRequestHeader baReqHdr;
+  //                 psduMap.begin ()->second->GetPayload (0)->PeekHeader (baReqHdr);
+  //                 ac = QosUtilsMapTidToAc (baReqHdr.GetTidInfo ());
+  //               }
 
-        
-    }
+  //             auto itPair = GetPairwisePerAcStats (hdr, ac);
+  //             if (itPair.second)
+  //               {
+  //                 // itPair.first->second.ampduRatio.AddSample (currRatio);
+  //               }
+  //           }
+  //         else if (hdr.GetType () == WIFI_MAC_QOSDATA_NULL)
+  //           {
+  //             // m_countOfNullResponsesToLastTf++;
+  //           }
+  //       psduduration = ul_psduDurationSum;
+  //       }
+  //       std::cout << "UL PDSU duration: "<< psduduration << "\n";
+  //       std::cout << "UL PPDU duration: "<< ppduduration << "\n";
+  //   }
 
-  // Downlink frame
-  else if (psduMap.begin ()->second->GetHeader (0).IsQosData ())
-    {
+  // // Downlink frame
+  // else if (psduMap.begin ()->second->GetHeader (0).IsQosData ())
+  //   {
   
-      Time dlMuPpduDuration = WifiPhy::CalculateTxDuration (psduMap, txVector, m_band);
+  //     Time dlMuPpduDuration = WifiPhy::CalculateTxDuration (psduMap, txVector, m_band);
       
-      // DL MU PPDU -- DL is data
-      if (txVector.GetPreambleType () == WIFI_PREAMBLE_HE_MU)
-        {
-          Time dlMuPpduDuration = WifiPhy::CalculateTxDuration (psduMap, txVector, m_band);
-          Time psduDurationSum = Seconds (0);
+  //     // DL MU PPDU -- DL is data
+  //     if (txVector.GetPreambleType () == WIFI_PREAMBLE_HE_MU)
+  //       {
+  //         Time dlMuPpduDuration = WifiPhy::CalculateTxDuration (psduMap, txVector, m_band);
+  //         Time psduDurationSum = Seconds (0);
 
-          for (auto &staIdPsdu : psduMap)
-            {
-              double currRatio = 0.0;
+  //         for (auto &staIdPsdu : psduMap)
+  //           {
+              
+  //             if (staIdPsdu.second->GetSize () > 0)
+  //               {
+  //                 std::cout<<" DL psdu size: "<<staIdPsdu.second->GetSize ()<<" station  :"<<staIdPsdu.first <<"\n";
+  //                 Time txDuration = WifiPhy::CalculateTxDuration (staIdPsdu.second->GetSize (),
+  //                                                                 txVector, m_band,
+  //                                                                 staIdPsdu.first);
+  //                 psduDurationSum += txDuration;
+  //               }
 
-              if (staIdPsdu.second->GetSize () > 0)
-                {
-                  Time txDuration = WifiPhy::CalculateTxDuration (staIdPsdu.second->GetSize (),
-                                                                  txVector, m_band,
-                                                                  staIdPsdu.first);
-                  psduDurationSum += txDuration;
-                  currRatio = txDuration.GetSeconds () / dlMuPpduDuration.GetSeconds ();
-                }
+  //           }
 
-              auto itPair = GetPairwisePerAcStats (staIdPsdu.second->GetHeader (0));
-              if (itPair.second)
-                {
-                  itPair.first->second.ampduRatio.AddSample (currRatio);
-                }
-                std::cout << "currRatio: "<< currRatio<<"\n";
-            }
+  //         // std::cout << "psdu duration sum: "<< psduDurationSum << "\n";
 
-          std::cout << "psdu duration sum: "<< psduDurationSum << "\n";
+  //         // std::cout << "dlMuPpduDuration: " << dlMuPpduDuration <<"\n";
 
-          std::cout << "dlMuPpduDuration: " << dlMuPpduDuration <<"\n";
-          // dlMuPpduDuration_all += dlMuPpduDuration;
-          // std::cout << "dlMuPpduDuration_all: " << dlMuPpduDuration_all <<"\n";
-          }
-    }
-     //if DL is trigger
-  // else if (psduMap.size () == 1 && psduMap.begin ()->second->GetHeader (0).IsTrigger ())
-  else if (psduMap.begin ()->second->GetHeader (0).IsTrigger ())
-    {
-      std::cout << "DL is trigger"<<"\n";
-      CtrlTriggerHeader trigger;
-      psduMap.begin()->second->GetPayload(0)->PeekHeader(trigger);
-      // auto hdrtid = psduMap.begin ()->second->GetHeader (0).GetQosTid();
+  //         psduduration = psduDurationSum;
+  //         }
+  //         std::cout << "DL PDSU duration: "<< psduduration << "\n";
+  //         std::cout << "DL PPDU duration: "<< ppduduration << "\n";
+  //   }
+  //    //if DL is trigger
+  // // else if (psduMap.size () == 1 && psduMap.begin ()->second->GetHeader (0).IsTrigger ())
+  // else if (psduMap.begin ()->second->GetHeader (0).IsTrigger ())
+  //   {
+  //     std::cout << "DL is trigger"<<"\n";
+  //     CtrlTriggerHeader trigger;
+  //     psduMap.begin()->second->GetPayload(0)->PeekHeader(trigger);
+  //     // auto hdrtid = psduMap.begin ()->second->GetHeader (0).GetQosTid();
     
-      auto x= (psduMap.begin ()->second->GetTids().begin());
-      auto accesscategory = QosUtilsMapTidToAc (*x);
+  //     auto x= (psduMap.begin ()->second->GetTids().begin());
+  //     auto accesscategory = QosUtilsMapTidToAc (*x);
 
 
-      WifiTxVector heTbTxVector = trigger.GetHeTbTxVector (trigger.begin ()->GetAid12 ());
+  //     WifiTxVector heTbTxVector = trigger.GetHeTbTxVector (trigger.begin ()->GetAid12 ());
       
-      if (trigger.IsBasic ())
-        {
-          m_lastTfType_ppdu = TriggerFrameType::BASIC_TRIGGER;
+  //     if (trigger.IsBasic ())
+  //       {
+  //         m_lastTfType_ppdu = TriggerFrameType::BASIC_TRIGGER;
           
-          dev = DynamicCast<WifiNetDevice> (m_apDevices.Get (0));
-          Ptr<ApWifiMac> mac = DynamicCast<ApWifiMac> (dev->GetMac ());
+  //         dev = DynamicCast<WifiNetDevice> (m_apDevices.Get (0));
+  //         Ptr<ApWifiMac> mac = DynamicCast<ApWifiMac> (dev->GetMac ());
 
-          Time txDuration_basic_trigger = WifiPhy::CalculateTxDuration (psduMap, txVector, m_band);
+  //         Time basic_trigger_duration = WifiPhy::CalculateTxDuration (psduMap, txVector, m_band);
                   
-          total_txDuration_basic_trigger += txDuration_basic_trigger;
+          
+  //         for (auto &userInfo : trigger)
+  //           {    
+  //             Mac48Address address = mac->GetStaList (accesscategory).at (userInfo.GetAid12 ());
+  //             std::size_t index = MacAddressToNodeId (address) - 1;
+  //           }
 
-          for (auto &userInfo : trigger)
-            {    
-              Mac48Address address = mac->GetStaList (accesscategory).at (userInfo.GetAid12 ());
-              std::size_t index = MacAddressToNodeId (address) - 1;
-            }
-            std::cout << "tx_duration_basic: "<< total_txDuration_basic_trigger << "\n";
-        }
-      else if (trigger.IsBsrp ())
-        {
-          Time txDuration_bsrp_trigger = WifiPhy::CalculateTxDuration (psduMap, txVector, m_band);
-                  
-          total_txDuration_bsrp_trigger += txDuration_bsrp_trigger;
+  //           psduduration = basic_trigger_duration;
+  //           std::cout << "BASIC PDSU duration: "<< psduduration << "\n";
+  //           std::cout << "BASIC PPDU duration: "<< ppduduration << "\n";
+  //         }
+  //     else if (trigger.IsBsrp ())
+  //       {
+  //         Time bsrp_trigger_duration = WifiPhy::CalculateTxDuration (psduMap, txVector, m_band);
+  //         m_lastTfType_ppdu = TriggerFrameType::BSRP_TRIGGER;
+  //         psduduration = bsrp_trigger_duration;
+  //         std::cout << "BSRP PDSU duration: "<< psduduration << "\n";
+  //         std::cout << "BSRP PPDU duration: "<< ppduduration << "\n";
+  //         }
+  //   }
 
-          m_lastTfType_ppdu = TriggerFrameType::BSRP_TRIGGER;
-          std::cout << "tx_duration_bsrp: "<< total_txDuration_basic_trigger << "\n";
-        }
-    }
+  //   std::cout << "PSDU to PPDU ratio: "<< psduduration.GetDouble()/ppduduration.GetDouble() << "\n";
 
-}
-  
-
-void
-WifiOfdmaExample::NotifyPsduForwardedDown (WifiConstPsduMap psduMap, WifiTxVector txVector, double txPowerW)
-{
+////////////////////////PSDU PPDU combined code/////////////////////////////////////////////
   Ptr<WifiNetDevice> dev = DynamicCast<WifiNetDevice> (m_apDevices.Get (0));
   Mac48Address apAddress = dev->GetMac ()->GetAddress ();
+  WifiConstPsduMap psduMap = ppdu->GetPsduMap();
+  ns3::Time psduduration = Seconds(0);
+  ns3::Time ppduduration = ppdu->GetTxDuration();
+
 
   std::cout << "PSDU map size: "<< psduMap.size() <<"\n";
 
@@ -3635,7 +3641,7 @@ WifiOfdmaExample::NotifyPsduForwardedDown (WifiConstPsduMap psduMap, WifiTxVecto
       // Uplink frame
       const WifiMacHeader &hdr = psduMap.begin ()->second->GetHeader (0);
 
-      if (txVector.GetPreambleType () == WIFI_PREAMBLE_HE_TB)
+      if (txVector.GetPreambleType () == WIFI_PREAMBLE_HE_TB || txVector.GetPreambleType () == WIFI_PREAMBLE_HE_SU)
         {
           // HE TB PPDU
           if (hdr.HasData () || hdr.IsBlockAckReq ())
@@ -3647,20 +3653,33 @@ WifiOfdmaExample::NotifyPsduForwardedDown (WifiConstPsduMap psduMap, WifiTxVecto
                 {
                 if (staIdPsdu.second->GetSize () > 0)
                   {
+                    // std::cout << "Packet size of psdu for loop UL: "<< staIdPsdu.second->GetPacket()->GetSize() <<" for station: "<< staIdPsdu.first << "\n";
+                  
+                    // std::cout << "Packet of psdu for loop UL: "<< staIdPsdu.second->GetPacket() <<" for station: "<< staIdPsdu.first << "\n";
+                  
+                    // std::cout << "psdu duration for loop UL: "<< staIdPsdu.second->GetDuration() <<" for station: "<< staIdPsdu.first << "\n";
+                    std::cout << "psdu size for UL station :"<<staIdPsdu.first <<" is "<<staIdPsdu.second->GetSize ()<<"\n";
+                    int n = staIdPsdu.second->GetNMpdus();
+                    int payloadsz=0;
+                    for(int i=0;i<n;i++){
+                        payloadsz+=staIdPsdu.second->GetPayload(i)->GetSize();
+                    } 
+                    
+                     std::cout << "Payload size of psdu for loop UL: "<< payloadsz <<" for station: "<< staIdPsdu.first << "\n";
+                  
                     Time txDuration = WifiPhy::CalculateTxDuration (staIdPsdu.second->GetSize (),
                                                                   txVector, m_band,
                                                                   staIdPsdu.first);
-                    // ul_psduDurationSum += txDuration;
-                    total_ul_psduDurationSum += txDuration;
+                    ul_psduDurationSum += txDuration;
+                    // total_ul_psduDurationSum += txDuration;
                     std::cout << "txduration in for loop: "<<txDuration <<"\n";
                   }
             }
 
             // std::cout << "HE TB PSDU sum of UL: "<< ul_psduDurationSum <<"\n";
-            // total_ul_psduDurationSum += ul_psduDurationSum;
+            total_ul_psduDurationSum += ul_psduDurationSum;
             std::cout << "total_ul_psduDurationSum: "<< total_ul_psduDurationSum<<"\n";
           
-              
               Time txDuration = WifiPhy::CalculateTxDuration (psduMap.begin ()->second->GetSize (),
                                                               txVector, m_band,
                                                               psduMap.begin ()->first);
@@ -3673,6 +3692,8 @@ WifiOfdmaExample::NotifyPsduForwardedDown (WifiConstPsduMap psduMap, WifiTxVecto
               std::cout << "m_durationOfResponsesToLastBasicTf: " << m_durationOfResponsesToLastBasicTf<<"\n";
               std::cout << "m_durationOfResponsesToLastBasicTf_all" <<m_durationOfResponsesToLastBasicTf_all<<"\n";
 
+              psduduration = ul_psduDurationSum;
+
               AcIndex ac = AC_UNDEF;
               if (hdr.IsBlockAckReq ())
                 {
@@ -3686,11 +3707,15 @@ WifiOfdmaExample::NotifyPsduForwardedDown (WifiConstPsduMap psduMap, WifiTxVecto
                 {
                   // itPair.first->second.ampduRatio.AddSample (currRatio);
                 }
+                m_ulMuCompleteness.AddSample(ul_psduDurationSum.GetSeconds () /
+                                        ppduduration.GetSeconds ());
+
             }
           else if (hdr.GetType () == WIFI_MAC_QOSDATA_NULL)
             {
               m_countOfNullResponsesToLastTf++;
             }
+            
         }
 
       if (hdr.HasData ())
@@ -3701,6 +3726,13 @@ WifiOfdmaExample::NotifyPsduForwardedDown (WifiConstPsduMap psduMap, WifiTxVecto
               itPair.first->second.ampduSize.AddSample (psduMap.begin ()->second->GetSize ());
             }
         }
+
+        
+
+        std::cout << "UL PSDU duration: "<< psduduration << "\n";
+        std::cout << "UL PPDU duration: "<< ppduduration << "\n";
+
+        std::cout << "UL psduppdu ratio: "<<psduduration.GetDouble()/ppduduration.GetDouble()<<"\n";
         
     }
 
@@ -3721,40 +3753,58 @@ WifiOfdmaExample::NotifyPsduForwardedDown (WifiConstPsduMap psduMap, WifiTxVecto
       m_dlMuPpduDuration.AddSample (dlMuPpduDuration.ToDouble (Time::MS));
 
       // DL MU PPDU -- DL is data
-      if (txVector.GetPreambleType () == WIFI_PREAMBLE_HE_MU)
+      if (txVector.GetPreambleType () == WIFI_PREAMBLE_HE_MU || txVector.GetPreambleType() == WIFI_PREAMBLE_HE_SU)
         {
           Time dlMuPpduDuration = WifiPhy::CalculateTxDuration (psduMap, txVector, m_band);
           m_dlMuPpduDuration.AddSample (dlMuPpduDuration.ToDouble (Time::MS));
+          Time psduDurationMax = Seconds (0);
           Time psduDurationSum = Seconds (0);
 
           for (auto &staIdPsdu : psduMap)
             {
-              double currRatio = 0.0;
+              // double currRatio = 0.0;
 
               if (staIdPsdu.second->GetSize () > 0)
                 {
+                  // std::cout << "Packet size of psdu for loop DL: "<< staIdPsdu.second->GetPacket()->GetSize() <<" for station: "<< staIdPsdu.first << "\n";
+                  
+                  
+                  // std::cout << "Packet of psdu for loop DL: "<< staIdPsdu.second->GetPacket() <<" for station: "<< staIdPsdu.first << "\n";
+                  
+                  // std::cout << "psdu duration for loop DL: "<< staIdPsdu.second->GetDuration() <<" for station: "<< staIdPsdu.first << "\n";
+                    
+                  // std::cout << "psdu size for DL station :"<<staIdPsdu.first <<" is "<<staIdPsdu.second->GetSize ()<<"\n";
+                    
+                  
                   Time txDuration = WifiPhy::CalculateTxDuration (staIdPsdu.second->GetSize (),
                                                                   txVector, m_band,
                                                                   staIdPsdu.first);
+                  psduDurationMax = std::max(psduduration, txDuration);
                   psduDurationSum += txDuration;
-                  currRatio = txDuration.GetSeconds () / dlMuPpduDuration.GetSeconds ();
+                  // currRatio = txDuration.GetSeconds () / dlMuPpduDuration.GetSeconds ();
                 }
 
               auto itPair = GetPairwisePerAcStats (staIdPsdu.second->GetHeader (0));
               if (itPair.second)
                 {
-                  itPair.first->second.ampduRatio.AddSample (currRatio);
+                  // itPair.first->second.ampduRatio.AddSample (currRatio);
                 }
-                std::cout << "currRatio: "<< currRatio<<"\n";
+                // std::cout << "currRatio: "<< currRatio<<"\n";
             }
-
-          std::cout << "psdu duration sum: "<< psduDurationSum << "\n";
+          psduduration = psduDurationMax;
+          std::cout << "psdu duration max: "<< psduDurationMax << "\n";
 
           std::cout << "dlMuPpduDuration: " << dlMuPpduDuration <<"\n";
           dlMuPpduDuration_all += dlMuPpduDuration;
           std::cout << "dlMuPpduDuration_all: " << dlMuPpduDuration_all <<"\n";
           m_dlMuCompleteness.AddSample (psduDurationSum.GetSeconds () /
                                         (dlMuPpduDuration.GetSeconds () * psduMap.size ()));
+
+          std::cout << "DL PSDU duration: "<< psduduration << "\n";
+          std::cout << "DL PPDU duration: "<< ppduduration << "\n";
+
+          std::cout << "DL psduppdu ratio: "<<psduduration.GetDouble()/ppduduration.GetDouble()<<"\n";
+        
         }
     } //if DL is trigger
   // else if (psduMap.size () == 1 && psduMap.begin ()->second->GetHeader (0).IsTrigger ())
@@ -3826,20 +3876,262 @@ WifiOfdmaExample::NotifyPsduForwardedDown (WifiConstPsduMap psduMap, WifiTxVecto
               NS_ASSERT (index < m_nSolicitingBasicTriggerFrames.size ());
               m_nSolicitingBasicTriggerFrames[index]++;
             }
+            psduduration = txDuration_basic_trigger;
+
+            std::cout << "BASIC PSDU duration: "<< psduduration << "\n";
+            std::cout << "BASIC PPDU duration: "<< ppduduration << "\n";
+
+            std::cout << "BASIC psduppdu ratio: "<<psduduration.GetDouble()/ppduduration.GetDouble()<<"\n";      
 
             std::cout << "tx_duration_basic: "<< total_txDuration_basic_trigger << "\n";
         }
       else if (trigger.IsBsrp ())
         {
+          
           Time txDuration_bsrp_trigger = WifiPhy::CalculateTxDuration (psduMap, txVector, m_band);
                   
           total_txDuration_bsrp_trigger += txDuration_bsrp_trigger;
 
           m_lastTfType = TriggerFrameType::BSRP_TRIGGER;
           m_nBsrpTriggerFramesSent++;
+          psduduration = txDuration_bsrp_trigger;
+
+          std::cout << "BSRP PSDU duration: "<< psduduration << "\n";
+          std::cout << "BSRP PPDU duration: "<< ppduduration << "\n";
+
+          std::cout << "BSRP psduppdu ratio: "<<psduduration.GetDouble()/ppduduration.GetDouble()<<"\n";
+        
           std::cout << "tx_duration_bsrp: "<< total_txDuration_basic_trigger << "\n";
         }
     }
+
+
+}
+  
+
+void
+WifiOfdmaExample::NotifyPsduForwardedDown (WifiConstPsduMap psduMap, WifiTxVector txVector, double txPowerW)
+{
+
+  std::cout << "NotifyPsduForwardedDown called"<<"\n";
+
+  
+//   Ptr<WifiNetDevice> dev = DynamicCast<WifiNetDevice> (m_apDevices.Get (0));
+//   Mac48Address apAddress = dev->GetMac ()->GetAddress ();
+
+//   std::cout << "PSDU map size: "<< psduMap.size() <<"\n";
+
+//   if (psduMap.size () == 1 && psduMap.begin ()->second->GetAddr1 () == apAddress)
+//     {
+//       // Uplink frame
+//       const WifiMacHeader &hdr = psduMap.begin ()->second->GetHeader (0);
+
+//       if (txVector.GetPreambleType () == WIFI_PREAMBLE_HE_TB)
+//         {
+//           // HE TB PPDU
+//           if (hdr.HasData () || hdr.IsBlockAckReq ())
+//             {
+//               std::cout << "txvector size in UL MU: "<< txVector.GetLength()<<"\n";
+
+//               Time ul_psduDurationSum = Seconds(0);
+//               for (auto &staIdPsdu : psduMap)
+//                 {
+//                 if (staIdPsdu.second->GetSize () > 0)
+//                   {
+//                     Time txDuration = WifiPhy::CalculateTxDuration (staIdPsdu.second->GetSize (),
+//                                                                   txVector, m_band,
+//                                                                   staIdPsdu.first);
+//                     // ul_psduDurationSum += txDuration;
+//                     total_ul_psduDurationSum += txDuration;
+//                     std::cout << "txduration in for loop: "<<txDuration <<"\n";
+//                   }
+//             }
+
+//             // std::cout << "HE TB PSDU sum of UL: "<< ul_psduDurationSum <<"\n";
+//             // total_ul_psduDurationSum += ul_psduDurationSum;
+//             std::cout << "total_ul_psduDurationSum: "<< total_ul_psduDurationSum<<"\n";
+          
+              
+//               Time txDuration = WifiPhy::CalculateTxDuration (psduMap.begin ()->second->GetSize (),
+//                                                               txVector, m_band,
+//                                                               psduMap.begin ()->first);
+//               m_durationOfResponsesToLastBasicTf += txDuration;
+//               std::cout << "txduration outside for loop: "<<txDuration<<"\n";
+//               m_durationOfResponsesToLastBasicTf_all += m_durationOfResponsesToLastBasicTf;
+              
+//               // double currRatio = txDuration.GetSeconds () / m_tfUlLength.GetSeconds ();
+
+//               std::cout << "m_durationOfResponsesToLastBasicTf: " << m_durationOfResponsesToLastBasicTf<<"\n";
+//               std::cout << "m_durationOfResponsesToLastBasicTf_all" <<m_durationOfResponsesToLastBasicTf_all<<"\n";
+
+//               AcIndex ac = AC_UNDEF;
+//               if (hdr.IsBlockAckReq ())
+//                 {
+//                   CtrlBAckRequestHeader baReqHdr;
+//                   psduMap.begin ()->second->GetPayload (0)->PeekHeader (baReqHdr);
+//                   ac = QosUtilsMapTidToAc (baReqHdr.GetTidInfo ());
+//                 }
+
+//               auto itPair = GetPairwisePerAcStats (hdr, ac);
+//               if (itPair.second)
+//                 {
+//                   // itPair.first->second.ampduRatio.AddSample (currRatio);
+//                 }
+//             }
+//           else if (hdr.GetType () == WIFI_MAC_QOSDATA_NULL)
+//             {
+//               m_countOfNullResponsesToLastTf++;
+//             }
+//         }
+
+//       if (hdr.HasData ())
+//         {
+//           auto itPair = GetPairwisePerAcStats (hdr);
+//           if (itPair.second)
+//             {
+//               itPair.first->second.ampduSize.AddSample (psduMap.begin ()->second->GetSize ());
+//             }
+//         }
+        
+//     }
+
+//   // Downlink frame
+//   else if (psduMap.begin ()->second->GetHeader (0).IsQosData ())
+//     {
+  
+//       for (auto &psdu : psduMap)
+//         {
+//           auto itPair = GetPairwisePerAcStats (psdu.second->GetHeader (0));
+//           if (itPair.second)
+//             {
+//               itPair.first->second.ampduSize.AddSample (psdu.second->GetSize ());
+//             }
+//         }
+
+//       Time dlMuPpduDuration = WifiPhy::CalculateTxDuration (psduMap, txVector, m_band);
+//       m_dlMuPpduDuration.AddSample (dlMuPpduDuration.ToDouble (Time::MS));
+
+//       // DL MU PPDU -- DL is data
+//       if (txVector.GetPreambleType () == WIFI_PREAMBLE_HE_MU)
+//         {
+//           Time dlMuPpduDuration = WifiPhy::CalculateTxDuration (psduMap, txVector, m_band);
+//           m_dlMuPpduDuration.AddSample (dlMuPpduDuration.ToDouble (Time::MS));
+//           Time psduDurationSum = Seconds (0);
+
+//           for (auto &staIdPsdu : psduMap)
+//             {
+//               double currRatio = 0.0;
+
+//               if (staIdPsdu.second->GetSize () > 0)
+//                 {
+//                   Time txDuration = WifiPhy::CalculateTxDuration (staIdPsdu.second->GetSize (),
+//                                                                   txVector, m_band,
+//                                                                   staIdPsdu.first);
+//                   psduDurationSum += txDuration;
+//                   currRatio = txDuration.GetSeconds () / dlMuPpduDuration.GetSeconds ();
+//                 }
+
+//               auto itPair = GetPairwisePerAcStats (staIdPsdu.second->GetHeader (0));
+//               if (itPair.second)
+//                 {
+//                   itPair.first->second.ampduRatio.AddSample (currRatio);
+//                 }
+//                 std::cout << "currRatio: "<< currRatio<<"\n";
+//             }
+
+//           std::cout << "psdu duration sum: "<< psduDurationSum << "\n";
+
+//           std::cout << "dlMuPpduDuration: " << dlMuPpduDuration <<"\n";
+//           dlMuPpduDuration_all += dlMuPpduDuration;
+//           std::cout << "dlMuPpduDuration_all: " << dlMuPpduDuration_all <<"\n";
+//           m_dlMuCompleteness.AddSample (psduDurationSum.GetSeconds () /
+//                                         (dlMuPpduDuration.GetSeconds () * psduMap.size ()));
+//         }
+//     } //if DL is trigger
+//   // else if (psduMap.size () == 1 && psduMap.begin ()->second->GetHeader (0).IsTrigger ())
+//   else if (psduMap.begin ()->second->GetHeader (0).IsTrigger ())
+//     {
+//       std::cout << "DL is trigger"<<"\n";
+//       CtrlTriggerHeader trigger;
+//       psduMap.begin()->second->GetPayload(0)->PeekHeader(trigger);
+//       // auto hdrtid = psduMap.begin ()->second->GetHeader (0).GetQosTid();
+    
+//       auto x= (psduMap.begin ()->second->GetTids().begin());
+//       auto accesscategory = QosUtilsMapTidToAc (*x);
+
+// // std::cout<<" PSDU map tid: "<<unsigned(accesscategory)<<" \n";
+//      // std::cout<<"Header tid : "<< int(hdrtid)<<" PSDU map tid: "<<unsigned(accesscategory)<<" \n";
+//       // if (m_tfUlLength.IsStrictlyPositive ())
+//       //   {
+//       //     // This is not the first Trigger Frame being sent
+//       //     if (m_lastTfType == BASIC_TRIGGER)
+//       //       {
+//       //         if (m_durationOfResponsesToLastBasicTf.IsZero ())
+//       //           {
+//       //             // no station responded to the previous TF
+//       //             m_nFailedBasicTriggerFrames++;
+//       //           }
+//       //         else
+//       //           {
+//       //             // double currRatio = m_durationOfResponsesToLastBasicTf.GetSeconds () /
+//       //             //                    m_overallTimeGrantedByTf.GetSeconds ();
+//       //             // m_heTbCompleteness.AddSample (currRatio);
+//       //           }
+//       //       }
+//       //     else if (m_lastTfType == BSRP_TRIGGER)
+//       //       {
+//       //         if (m_countOfNullResponsesToLastTf == 0)
+//       //           {
+//       //             // no station responded to the previous TF
+//       //             m_nFailedBsrpTriggerFrames++;
+//       //           }
+//       //       }
+//       //   }
+
+//       // reset counters
+//       m_countOfNullResponsesToLastTf = 0;
+//       m_durationOfResponsesToLastBasicTf = Seconds (0);
+
+//       WifiTxVector heTbTxVector = trigger.GetHeTbTxVector (trigger.begin ()->GetAid12 ());
+//       // m_tfUlLength = WifiPhy::ConvertLSigLengthToHeTbPpduDuration (trigger.GetUlLength (), heTbTxVector, m_band);
+//       // m_overallTimeGrantedByTf = m_tfUlLength * trigger.GetNUserInfoFields ();
+
+//       if (trigger.IsBasic ())
+//         {
+//           m_lastTfType = TriggerFrameType::BASIC_TRIGGER;
+//           m_nBasicTriggerFramesSent++;
+//           // m_heTbPpduDuration.AddSample (m_tfUlLength.ToDouble (Time::MS));
+
+//           dev = DynamicCast<WifiNetDevice> (m_apDevices.Get (0));
+//           Ptr<ApWifiMac> mac = DynamicCast<ApWifiMac> (dev->GetMac ());
+
+//           Time txDuration_basic_trigger = WifiPhy::CalculateTxDuration (psduMap, txVector, m_band);
+                  
+//           total_txDuration_basic_trigger += txDuration_basic_trigger;
+
+//           for (auto &userInfo : trigger)
+//             {
+              
+//               Mac48Address address = mac->GetStaList (accesscategory).at (userInfo.GetAid12 ());
+//               std::size_t index = MacAddressToNodeId (address) - 1;
+//               NS_ASSERT (index < m_nSolicitingBasicTriggerFrames.size ());
+//               m_nSolicitingBasicTriggerFrames[index]++;
+//             }
+
+//             std::cout << "tx_duration_basic: "<< total_txDuration_basic_trigger << "\n";
+//         }
+//       else if (trigger.IsBsrp ())
+//         {
+          
+//           Time txDuration_bsrp_trigger = WifiPhy::CalculateTxDuration (psduMap, txVector, m_band);
+                  
+//           total_txDuration_bsrp_trigger += txDuration_bsrp_trigger;
+
+//           m_lastTfType = TriggerFrameType::BSRP_TRIGGER;
+//           m_nBsrpTriggerFramesSent++;
+//           std::cout << "tx_duration_bsrp: "<< total_txDuration_basic_trigger << "\n";
+//         }
+//     }
 }
 
 void
