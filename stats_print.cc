@@ -528,7 +528,7 @@ private:
   uint64_t m_countOfNullResponsesToLastTf {0}; // count of QoS Null frames sent in response to the last TF
   TriggerFrameType m_lastTfType;   // type of the last Trigger Frame sent (Basic or Bsrp)
 
-  TriggerFrameType m_lastTfType_ppdu;
+  // TriggerFrameType m_lastTfType_ppdu;
 
   Time m_durationOfResponsesToLastBasicTf_all{0};
   int prev_tx{0};
@@ -3659,11 +3659,12 @@ WifiOfdmaExample::NotifyPpduForwardedDown (Ptr<WifiPpdu> ppdu, WifiTxVector txVe
                   
                     // std::cout << "psdu duration for loop UL: "<< staIdPsdu.second->GetDuration() <<" for station: "<< staIdPsdu.first << "\n";
                     // std::cout << "psdu size for UL station :"<<staIdPsdu.first <<" is "<<staIdPsdu.second->GetSize ()<<"\n";
-                    int n = staIdPsdu.second->GetNMpdus();
-                    int payloadsz=0;
-                    for(int i=0;i<n;i++){
-                        payloadsz+=staIdPsdu.second->GetPayload(i)->GetSize();
-                    } 
+                    // int n = staIdPsdu.second->GetNMpdus();
+                   
+                    // int payloadsz=0;
+                    // for(int i=0;i<n;i++){
+                    //     payloadsz+=staIdPsdu.second->GetPayload(i)->GetSize();
+                    // } 
                     
                     //  std::cout << "Payload size of psdu for loop UL: "<< payloadsz <<" for station: "<< staIdPsdu.first << "\n";
                   
@@ -3814,9 +3815,8 @@ WifiOfdmaExample::NotifyPpduForwardedDown (Ptr<WifiPpdu> ppdu, WifiTxVector txVe
       CtrlTriggerHeader trigger;
       psduMap.begin()->second->GetPayload(0)->PeekHeader(trigger);
       // auto hdrtid = psduMap.begin ()->second->GetHeader (0).GetQosTid();
-    
-      auto x= (psduMap.begin ()->second->GetTids().begin());
-      auto accesscategory = QosUtilsMapTidToAc (*x);
+      
+      auto accesscategory = QosUtilsMapTidToAc (*(psduMap.begin ()->second->GetTids().begin()));
 
 // std::cout<<" PSDU map tid: "<<unsigned(accesscategory)<<" \n";
      // std::cout<<"Header tid : "<< int(hdrtid)<<" PSDU map tid: "<<unsigned(accesscategory)<<" \n";
