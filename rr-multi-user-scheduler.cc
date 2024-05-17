@@ -1280,8 +1280,8 @@ RrMultiUserScheduler::FinalizeTxVector(WifiTxVector& txVector, std::string sched
             NS_ASSERT(candidateIt != m_candidates.end());
             auto mapIt = heMuUserInfoMap.find(candidateIt->first->aid);
             NS_ASSERT(mapIt != heMuUserInfoMap.end());
-        std::cout<<"Served station address "<<(candidateIt->first->address)<<" has buffer : "<<
-        unsigned(m_apMac->GetMaxBufferStatus(candidateIt->first->address))<<"\n";
+        // std::cout<<"Served station address "<<(candidateIt->first->address)<<" has buffer : "<<
+        // unsigned(m_apMac->GetMaxBufferStatus(candidateIt->first->address))<<"\n";
             txVector.SetHeMuUserInfo(mapIt->first,
                                      {(i < nRusAssigned ? *ruSetIt++ : *central26TonesRusIt++),
                                       mapIt->second.mcs,
@@ -1519,3 +1519,4 @@ RrMultiUserScheduler::ComputeUlMuInfo()
 }
 
 } // namespace ns3
+
