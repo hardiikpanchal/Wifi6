@@ -63,6 +63,9 @@ ns3::Time basic_start = TimeStep(0);
 bool bsrp_limit = false;
 int count = 10;
 
+bool prop_scheduler = false;
+
+
 
 TypeId
 RrMultiUserScheduler::GetTypeId()
@@ -109,6 +112,11 @@ RrMultiUserScheduler::GetTypeId()
                           StringValue ("Standard"),
                           MakeStringAccessor (&RrMultiUserScheduler::m_ulschedulerLogic),
                           MakeStringChecker ())
+            .AddAttribute("Width",
+                          "20, 40, 80 or 160",
+                          StringValue ("20"),
+                          MakeStringAccessor (&RrMultiUserScheduler::m_channelWidth),
+                          MakeStringChecker ())
             .AddAttribute(
                 "UlPsduSize",
                 "The default size in bytes of the solicited PSDU (to be sent in a TB PPDU)",
@@ -132,6 +140,139 @@ RrMultiUserScheduler::GetTypeId()
                 MakeTimeAccessor(&RrMultiUserScheduler::m_maxCredits),
                 MakeTimeChecker());
     return tid;
+}
+
+std::vector<HeRu::RuSpec>
+RrMultiUserScheduler::prop_scheduler_fun(std::list<std::pair<std::list<MasterInfo>::iterator, 
+Ptr<WifiMpdu>>> m_candidates, uint16_t ch_width){
+    std::vector<HeRu::RuSpec> allocation;
+    if(ch_width == 20){
+        int total_width = 9;
+        std::vector<int> queue_array;
+        double queue_sum = 0;
+        std::cout << "Queue size: ";
+        for(auto it: m_candidates){
+            int sz = m_apMac->GetMaxBufferStatus(it.first->address);
+            std::cout << "station: "<< it.first->address << " " << sz << " ";
+            queue_array.push_back(sz);
+            queue_sum += sz;
+        }std::cout << "\n";
+
+        for (int i = 0; i < int(queue_array.size()); i++)
+        {
+            queue_array[i] = int((queue_array[i]/queue_sum)*total_width);
+        }
+
+        for (int i = 0; i < int(queue_array.size()); i++)
+        {
+            if(allocation.size() >= 9){
+                break;
+            }
+            if(queue_array[i] == 1){
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_26_TONE, (i+1), true);
+                allocation.push_back(*(ruSet.begin()));
+            }else if(queue_array[i] >= 2 && queue_array[i] < 4){
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_52_TONE, (i+1), true);
+                allocation.push_back(*(ruSet.begin()));
+            }else if(queue_array[i] >= 4 && queue_array[i] < 9){
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_106_TONE, (i+1), true);
+                allocation.push_back(*(ruSet.begin()));
+            }else if(queue_array[i] == 9){
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_242_TONE, (i+1), true);
+                allocation.push_back(*(ruSet.begin()));
+            }
+        }    
+        
+    }else if(ch_width == 40){
+        int total_width = 18;
+        std::vector<int> queue_array;
+        double queue_sum = 0;
+        std::cout << "Queue size: ";
+        for(auto it: m_candidates){
+            int sz = m_apMac->GetMaxBufferStatus(it.first->address);
+            std::cout << "station: "<< it.first->address << " " << sz << " ";
+            queue_array.push_back(sz);
+            queue_sum += sz;
+        }std::cout << "\n";
+
+        for (int i = 0; i < int(queue_array.size()); i++)
+        {
+            queue_array[i] = int((queue_array[i]/queue_sum)*total_width);
+        }
+
+        for (int i = 0; i < int(queue_array.size()); i++)
+        {
+            if(allocation.size() >= 18){
+                break;
+            }
+            
+            if(queue_array[i] == 1){
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_26_TONE, (i+1), true);
+                allocation.push_back(*(ruSet.begin()));
+            }else if(queue_array[i] >= 2 && queue_array[i] < 4){
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_52_TONE, (i+1), true);
+                allocation.push_back(*(ruSet.begin()));
+            }else if(queue_array[i] >= 4 && queue_array[i] < 9){
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_106_TONE, (i+1), true);
+                allocation.push_back(*(ruSet.begin()));
+            }else if(queue_array[i] >= 9 && queue_array[i] < 18){
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_242_TONE, (i+1), true);
+                allocation.push_back(*(ruSet.begin()));
+            }else if(queue_array[i] == 18){
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_484_TONE, (i+1), true);
+                allocation.push_back(*(ruSet.begin()));
+            }
+        }
+    }else if(ch_width == 80){
+        int total_width = 37;
+        std::vector<int> queue_array;
+        double queue_sum = 0;
+        std::cout << "Queue size: ";
+        for(auto it: m_candidates){
+            int sz = m_apMac->GetMaxBufferStatus(it.first->address);
+            std::cout << "station: "<< it.first->address << " " << sz << " ";
+            queue_array.push_back(sz);
+            queue_sum += sz;
+        }std::cout << "\n";
+
+        for (int i = 0; i < int(queue_array.size()); i++)
+        {
+            queue_array[i] = int((queue_array[i]/queue_sum)*total_width);
+        }
+
+        for (int i = 0; i < int(queue_array.size()); i++)
+        {
+            if(allocation.size() >= 37){
+                break;
+            }
+            
+            if(queue_array[i] == 1){
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_26_TONE, (i+1), true);
+                allocation.push_back(*(ruSet.begin()));
+            }else if(queue_array[i] >= 2 && queue_array[i] < 4){
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_52_TONE, (i+1), true);
+                allocation.push_back(*(ruSet.begin()));
+            }else if(queue_array[i] >= 4 && queue_array[i] < 9){
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_106_TONE, (i+1), true);
+                allocation.push_back(*(ruSet.begin()));
+            }else if(queue_array[i] >= 9 && queue_array[i] < 18){
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_242_TONE, (i+1), true);
+                allocation.push_back(*(ruSet.begin()));
+            }else if(queue_array[i] >= 18 && queue_array[i] < 37){
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_484_TONE, (i+1), true);
+                allocation.push_back(*(ruSet.begin()));
+            }else if(queue_array[i] == 37){
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_996_TONE, (i+1), true);
+                allocation.push_back(*(ruSet.begin()));
+            }
+        }
+    }
+    std::cout << "RU allocation: ";
+    for(auto it: allocation){
+        std::cout << it << " "; 
+    }
+    std::cout << "\n";
+    return allocation;
 }
 
 RrMultiUserScheduler::RrMultiUserScheduler()
@@ -269,8 +410,21 @@ RrMultiUserScheduler::GetTxVectorForUlMu(Func canBeSolicited, bool isbasictf)
     auto count = std::min<std::size_t>(m_nStations, m_staListUl.size());
     std::size_t nCentral26TonesRus;
     std::size_t limit = 9;
+
+    if(m_apMac->GetWifiPhy()->GetChannelWidth() == 20){
+        limit = 9;
+    }else if(m_apMac->GetWifiPhy()->GetChannelWidth() == 40){
+        limit = 18;
+    }else if(m_apMac->GetWifiPhy()->GetChannelWidth() == 80){
+        limit = 37;
+    }else if(m_apMac->GetWifiPhy()->GetChannelWidth() == 160){
+        limit = 74;
+    }
+
     count = std::min(count, limit);
-    HeRu::GetEqualSizedRusForStations(m_allowedWidth, count, nCentral26TonesRus, scheduler_x);
+    std::cout << "width: "<<m_allowedWidth <<"\n";
+    std::cout << "width in apmac: "<< m_apMac->GetWifiPhy()->GetChannelWidth() << "\n";
+    HeRu::GetEqualSizedRusForStations(m_apMac->GetWifiPhy()->GetChannelWidth(), count, nCentral26TonesRus, scheduler_x);
     NS_ASSERT(count >= 1);
 
     if (!m_useCentral26TonesRus)
@@ -283,7 +437,7 @@ RrMultiUserScheduler::GetTxVectorForUlMu(Func canBeSolicited, bool isbasictf)
 
     WifiTxVector txVector;
     txVector.SetPreambleType(WIFI_PREAMBLE_HE_TB);
-    txVector.SetChannelWidth(m_allowedWidth);
+    txVector.SetChannelWidth(m_apMac->GetWifiPhy()->GetChannelWidth());
     txVector.SetGuardInterval(heConfiguration->GetGuardInterval().GetNanoSeconds());
     txVector.SetBssColor(heConfiguration->GetBssColor());
 
@@ -362,14 +516,18 @@ RrMultiUserScheduler::GetTxVectorForUlMu(Func canBeSolicited, bool isbasictf)
                          .value_or(staIt->address));
         hdr.SetAddr2(m_apMac->GetFrameExchangeManager(m_linkId)->GetAddress());
         WifiTxVector suTxVector =
-            GetWifiRemoteStationManager(m_linkId)->GetDataTxVector(hdr, m_allowedWidth);
+            GetWifiRemoteStationManager(m_linkId)->GetDataTxVector(hdr, m_apMac->GetWifiPhy()->GetChannelWidth());
         txVector.SetHeMuUserInfo(staIt->aid,
                                  {HeRu::RuSpec(), // assigned later by FinalizeTxVector
                                   suTxVector.GetMode().GetMcsValue(),
                                   suTxVector.GetNss()});
 
 
-         m_candidates.emplace_back(staIt, nullptr);
+        m_candidates.emplace_back(staIt, nullptr);
+        // AcIndex ac = QosUtilsMapTidToAc(tid);
+            
+        // mpdu = m_apMac->GetQosTxop(ac)->PeekNextMpdu(m_linkId, tid, staIt->address);
+        // m_candidates.emplace_back(staIt, mpdu);
 
         // move to the next station in the list
         staIt++;
@@ -397,8 +555,21 @@ RrMultiUserScheduler::GetTxVectorForUlMu(Func canBeSolicited, bool isbasictf)
     auto count = std::min<std::size_t>(m_nStations, m_staListUl.size());
     std::size_t nCentral26TonesRus;
     std::size_t limit = 9;
+    if(m_apMac->GetWifiPhy()->GetChannelWidth() == 20){
+        limit = 9;
+    }else if(m_apMac->GetWifiPhy()->GetChannelWidth() == 40){
+        limit = 18;
+    }else if(m_apMac->GetWifiPhy()->GetChannelWidth() == 80){
+        limit = 37;
+    }else if(m_apMac->GetWifiPhy()->GetChannelWidth() == 160){
+        limit = 74;
+    }
+    std::cout << "count1: "<< count<<"\n";
     count = std::min(limit, count);
-    HeRu::GetEqualSizedRusForStations(m_allowedWidth, count, nCentral26TonesRus, scheduler_x);
+    std::cout << "width: "<<m_allowedWidth <<"\n";
+    std::cout << "width in apmac: "<< m_apMac->GetWifiPhy()->GetChannelWidth() << "\n";
+    HeRu::GetEqualSizedRusForStations(m_apMac->GetWifiPhy()->GetChannelWidth(), count, nCentral26TonesRus, scheduler_x);
+    std::cout << "count2: "<< count<<"\n";
     NS_ASSERT(count >= 1);
 
     if (!m_useCentral26TonesRus)
@@ -411,7 +582,7 @@ RrMultiUserScheduler::GetTxVectorForUlMu(Func canBeSolicited, bool isbasictf)
 
     WifiTxVector txVector;
     txVector.SetPreambleType(WIFI_PREAMBLE_HE_TB);
-    txVector.SetChannelWidth(m_allowedWidth);
+    txVector.SetChannelWidth(m_apMac->GetWifiPhy()->GetChannelWidth());
     txVector.SetGuardInterval(heConfiguration->GetGuardInterval().GetNanoSeconds());
     txVector.SetBssColor(heConfiguration->GetBssColor());
 
@@ -480,7 +651,7 @@ RrMultiUserScheduler::GetTxVectorForUlMu(Func canBeSolicited, bool isbasictf)
                          .value_or(staIt->address));
         hdr.SetAddr2(m_apMac->GetFrameExchangeManager(m_linkId)->GetAddress());
         WifiTxVector suTxVector =
-            GetWifiRemoteStationManager(m_linkId)->GetDataTxVector(hdr, m_allowedWidth);
+            GetWifiRemoteStationManager(m_linkId)->GetDataTxVector(hdr, m_apMac->GetWifiPhy()->GetChannelWidth());
         txVector.SetHeMuUserInfo(staIt->aid,
                                  {HeRu::RuSpec(), // assigned later by FinalizeTxVector
                                   suTxVector.GetMode().GetMcsValue(),
@@ -543,7 +714,7 @@ RrMultiUserScheduler::TrySendingBsrpTf()
     // set the TXVECTOR used to send the Trigger Frame
     m_txParams.m_txVector =
         m_apMac->GetWifiRemoteStationManager(m_linkId)->GetRtsTxVector(m_triggerMacHdr.GetAddr1(),
-                                                                       m_allowedWidth);
+                                                                       m_apMac->GetWifiPhy()->GetChannelWidth());
 
     if (!GetHeFem(m_linkId)->TryAddMpdu(item, m_txParams, m_availableTime))
     {
@@ -682,7 +853,7 @@ RrMultiUserScheduler::TrySendingBasicTf()
     // set the TXVECTOR used to send the Trigger Frame
     m_txParams.m_txVector =
         m_apMac->GetWifiRemoteStationManager(m_linkId)->GetRtsTxVector(m_triggerMacHdr.GetAddr1(),
-                                                                       m_allowedWidth);
+                                                                       m_apMac->GetWifiPhy()->GetChannelWidth());
 
     if (!GetHeFem(m_linkId)->TryAddMpdu(item, m_txParams, m_availableTime))
     {
@@ -1031,10 +1202,21 @@ count = std::min (static_cast<std::size_t> (m_nStations), m_candidates.size ());
 if(count==0)count=1;
 //   std::cout<<count<<" Printing count \n";
   std::size_t limit = 9;
-  count = std::min(count, limit);
+  if(m_apMac->GetWifiPhy()->GetChannelWidth() == 20){
+        limit = 9;
+    }else if(m_apMac->GetWifiPhy()->GetChannelWidth() == 40){
+        limit = 18;
+    }else if(m_apMac->GetWifiPhy()->GetChannelWidth() == 80){
+        limit = 37;
+    }else if(m_apMac->GetWifiPhy()->GetChannelWidth() == 160){
+        limit = 74;
+    }
 
+  count = std::min(count, limit);
+    std::cout << "width: "<<m_allowedWidth <<"\n";
+    std::cout << "width in apmac: "<< m_apMac->GetWifiPhy()->GetChannelWidth() << "\n";
     HeRu::RuType ruType =
-        HeRu::GetEqualSizedRusForStations(m_allowedWidth, count, nCentral26TonesRus, scheduler_x);
+        HeRu::GetEqualSizedRusForStations(m_apMac->GetWifiPhy()->GetChannelWidth(), count, nCentral26TonesRus, scheduler_x);
     NS_ASSERT(count >= 1);
 
     // std::cout << "DL count after allocation: "<<count <<"\n";
@@ -1051,7 +1233,7 @@ if(count==0)count=1;
 
     m_txParams.Clear();
     m_txParams.m_txVector.SetPreambleType(WIFI_PREAMBLE_HE_MU);
-    m_txParams.m_txVector.SetChannelWidth(m_allowedWidth);
+    m_txParams.m_txVector.SetChannelWidth(m_apMac->GetWifiPhy()->GetChannelWidth());
     m_txParams.m_txVector.SetGuardInterval(heConfiguration->GetGuardInterval().GetNanoSeconds());
     m_txParams.m_txVector.SetBssColor(heConfiguration->GetBssColor());
 
@@ -1108,7 +1290,7 @@ if(count==0)count=1;
                     // station, so that the TX duration can be correctly computed.
                     WifiTxVector suTxVector =
                         GetWifiRemoteStationManager(m_linkId)->GetDataTxVector(mpdu->GetHeader(),
-                                                                               m_allowedWidth);
+                                                                               m_apMac->GetWifiPhy()->GetChannelWidth());
 
                     WifiTxVector txVectorCopy = m_txParams.m_txVector;
 
@@ -1185,12 +1367,59 @@ RrMultiUserScheduler::FinalizeTxVector(WifiTxVector& txVector, std::string sched
         std::size_t nRusAssigned = m_candidates.size();
         std::size_t nCentral26TonesRus;
         std::size_t limit = 9;
+        if(m_apMac->GetWifiPhy()->GetChannelWidth() == 20){
+        limit = 9;
+    }else if(m_apMac->GetWifiPhy()->GetChannelWidth() == 40){
+        limit = 18;
+    }else if(m_apMac->GetWifiPhy()->GetChannelWidth() == 80){
+        limit = 37;
+    }else if(m_apMac->GetWifiPhy()->GetChannelWidth() == 160){
+        limit = 74;
+    }
+
+    if(prop_scheduler && false){
+
+        std::cout << "width: "<<m_allowedWidth <<"\n";
+        std::cout << "width in apmac: "<< m_apMac->GetWifiPhy()->GetChannelWidth() << "\n";
+        
+        // re-allocate RUs based on the actual number of candidate stations
+        WifiTxVector::HeMuUserInfoMap heMuUserInfoMap;
+        std::swap(heMuUserInfoMap, txVector.GetHeMuUserInfoMap());
+
+        auto candidateIt = m_candidates.begin(); // iterator over the list of candidate receivers
+        
+        std::vector<HeRu::RuSpec> RU_array;
+        RU_array = prop_scheduler_fun(m_candidates, m_apMac->GetWifiPhy()->GetChannelWidth());
+
+        for (std::size_t i = 0; i < RU_array.size(); i++)
+        {
+            NS_ASSERT(candidateIt != m_candidates.end());
+            auto mapIt = heMuUserInfoMap.find(candidateIt->first->aid);
+            NS_ASSERT(mapIt != heMuUserInfoMap.end());
+
+            txVector.SetHeMuUserInfo(mapIt->first,
+                                     {RU_array[i],
+                                      mapIt->second.mcs,
+                                      mapIt->second.nss});
+            candidateIt++;
+            if(candidateIt == m_candidates.end ()){
+                    break;
+                  }
+        }
+
+        // remove candidates that will not be served
+        m_candidates.erase(candidateIt, m_candidates.end());
+
+    }else{
+
         nRusAssigned = std::min(nRusAssigned, limit);
+        std::cout << "width: "<<m_allowedWidth <<"\n";
+        std::cout << "width in apmac: "<< m_apMac->GetWifiPhy()->GetChannelWidth() << "\n";
         HeRu::RuType ruType =
-            HeRu::GetEqualSizedRusForStations(m_allowedWidth, nRusAssigned, nCentral26TonesRus, scheduler_x);
+            HeRu::GetEqualSizedRusForStations(m_apMac->GetWifiPhy()->GetChannelWidth(), nRusAssigned, nCentral26TonesRus, scheduler_x);
 
         NS_LOG_DEBUG(nRusAssigned << " stations are being assigned a " << ruType << " RU");
-        // std::cout << "In DL "<< nRusAssigned << " stations are being assigned a " << ruType << " RU"<<"\n";
+        std::cout << "In DL "<< nRusAssigned << " stations are being assigned a " << ruType << " RU"<<"\n";
         if (!m_useCentral26TonesRus || m_candidates.size() == nRusAssigned)
         {
             nCentral26TonesRus = 0;
@@ -1206,9 +1435,9 @@ RrMultiUserScheduler::FinalizeTxVector(WifiTxVector& txVector, std::string sched
         std::swap(heMuUserInfoMap, txVector.GetHeMuUserInfoMap());
 
         auto candidateIt = m_candidates.begin(); // iterator over the list of candidate receivers
-        auto ruSet = HeRu::GetRusOfType(m_allowedWidth, ruType);
+        auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), ruType, 0, false);
         auto ruSetIt = ruSet.begin();
-        auto central26TonesRus = HeRu::GetCentral26TonesRus(m_allowedWidth, ruType);
+        auto central26TonesRus = HeRu::GetCentral26TonesRus(m_apMac->GetWifiPhy()->GetChannelWidth(), ruType);
         auto central26TonesRusIt = central26TonesRus.begin();
 
         for (std::size_t i = 0; i < nRusAssigned + nCentral26TonesRus; i++)
@@ -1216,6 +1445,8 @@ RrMultiUserScheduler::FinalizeTxVector(WifiTxVector& txVector, std::string sched
             NS_ASSERT(candidateIt != m_candidates.end());
             auto mapIt = heMuUserInfoMap.find(candidateIt->first->aid);
             NS_ASSERT(mapIt != heMuUserInfoMap.end());
+
+            std::cout << "DL station: " << candidateIt->first->address << "RU: "<< *ruSetIt <<"\n"; 
 
             txVector.SetHeMuUserInfo(mapIt->first,
                                      {(i < nRusAssigned ? *ruSetIt++ : *central26TonesRusIt++),
@@ -1229,6 +1460,7 @@ RrMultiUserScheduler::FinalizeTxVector(WifiTxVector& txVector, std::string sched
 
         // remove candidates that will not be served
         m_candidates.erase(candidateIt, m_candidates.end());
+    }
 
 ////////////////////////////////////////////////////////////
     }else{ // UL code
@@ -1249,9 +1481,51 @@ RrMultiUserScheduler::FinalizeTxVector(WifiTxVector& txVector, std::string sched
         std::size_t nRusAssigned = m_candidates.size();
         std::size_t nCentral26TonesRus;
         std::size_t limit = 9;
+        if(m_apMac->GetWifiPhy()->GetChannelWidth() == 20){
+        limit = 9;
+    }else if(m_apMac->GetWifiPhy()->GetChannelWidth() == 40){
+        limit = 18;
+    }else if(m_apMac->GetWifiPhy()->GetChannelWidth() == 80){
+        limit = 37;
+    }else if(m_apMac->GetWifiPhy()->GetChannelWidth() == 160){
+        limit = 74;
+    }
+
+    if(prop_scheduler){
+        // re-allocate RUs based on the actual number of candidate stations
+        WifiTxVector::HeMuUserInfoMap heMuUserInfoMap;
+        std::swap(heMuUserInfoMap, txVector.GetHeMuUserInfoMap());
+    
+        auto candidateIt = m_candidates.begin(); // iterator over the list of candidate receivers
+        
+        std::vector<HeRu::RuSpec> RU_array;
+        RU_array = prop_scheduler_fun(m_candidates, m_apMac->GetWifiPhy()->GetChannelWidth());
+    
+        for (std::size_t i = 0; i < RU_array.size(); i++)
+        {
+            NS_ASSERT(candidateIt != m_candidates.end());
+            auto mapIt = heMuUserInfoMap.find(candidateIt->first->aid);
+            NS_ASSERT(mapIt != heMuUserInfoMap.end());
+            txVector.SetHeMuUserInfo(mapIt->first,
+                                     {RU_array[i],
+                                      mapIt->second.mcs,
+                                      mapIt->second.nss});
+            candidateIt++;
+            if(candidateIt == m_candidates.end ()){
+                    break;
+                  }
+        }
+    
+        // remove candidates that will not be served
+        m_candidates.erase(candidateIt, m_candidates.end());
+
+    }else{
+
         nRusAssigned = std::min(nRusAssigned, limit);
+        std::cout << "width: "<<m_allowedWidth <<"\n";
+        std::cout << "width in apmac: "<< m_apMac->GetWifiPhy()->GetChannelWidth() << "\n";
         HeRu::RuType ruType =
-            HeRu::GetEqualSizedRusForStations(m_allowedWidth, nRusAssigned, nCentral26TonesRus, scheduler_x);
+            HeRu::GetEqualSizedRusForStations(m_apMac->GetWifiPhy()->GetChannelWidth(), nRusAssigned, nCentral26TonesRus, scheduler_x);
     
         NS_LOG_DEBUG(nRusAssigned << " stations are being assigned a " << ruType << " RU");
         // std::cout << "In UL Basic TF"<< nRusAssigned << " stations are being assigned a " << ruType << " RU"<<"\n";
@@ -1270,9 +1544,9 @@ RrMultiUserScheduler::FinalizeTxVector(WifiTxVector& txVector, std::string sched
         std::swap(heMuUserInfoMap, txVector.GetHeMuUserInfoMap());
     
         auto candidateIt = m_candidates.begin(); // iterator over the list of candidate receivers
-        auto ruSet = HeRu::GetRusOfType(m_allowedWidth, ruType);
+        auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), ruType, 0, false);
         auto ruSetIt = ruSet.begin();
-        auto central26TonesRus = HeRu::GetCentral26TonesRus(m_allowedWidth, ruType);
+        auto central26TonesRus = HeRu::GetCentral26TonesRus(m_apMac->GetWifiPhy()->GetChannelWidth(), ruType);
         auto central26TonesRusIt = central26TonesRus.begin();
     
         for (std::size_t i = 0; i < nRusAssigned + nCentral26TonesRus; i++)
@@ -1294,6 +1568,7 @@ RrMultiUserScheduler::FinalizeTxVector(WifiTxVector& txVector, std::string sched
     
         // remove candidates that will not be served
         m_candidates.erase(candidateIt, m_candidates.end());
+    }
 
 ////////////////////////////////////////////////////////////
         }else{//BSRP TF
@@ -1310,9 +1585,21 @@ RrMultiUserScheduler::FinalizeTxVector(WifiTxVector& txVector, std::string sched
         std::size_t nRusAssigned = m_candidates.size();
         std::size_t nCentral26TonesRus;
         std::size_t limit = 9;
+        if(m_apMac->GetWifiPhy()->GetChannelWidth() == 20){
+        limit = 9;
+    }else if(m_apMac->GetWifiPhy()->GetChannelWidth() == 40){
+        limit = 18;
+    }else if(m_apMac->GetWifiPhy()->GetChannelWidth() == 80){
+        limit = 37;
+    }else if(m_apMac->GetWifiPhy()->GetChannelWidth() == 160){
+        limit = 74;
+    }
+
         nRusAssigned = std::min(nRusAssigned, limit);
+        std::cout << "width: "<<m_allowedWidth <<"\n";
+        std::cout << "width in apmac: "<< m_apMac->GetWifiPhy()->GetChannelWidth() << "\n";
         HeRu::RuType ruType =
-            HeRu::GetEqualSizedRusForStations(m_allowedWidth, nRusAssigned, nCentral26TonesRus, scheduler_x);
+            HeRu::GetEqualSizedRusForStations(m_apMac->GetWifiPhy()->GetChannelWidth(), nRusAssigned, nCentral26TonesRus, scheduler_x);
     
         NS_LOG_DEBUG(nRusAssigned << " stations are being assigned a " << ruType << " RU");
         std::cout << "In UL BSRP TF"<< nRusAssigned << " stations are being assigned a " << ruType << " RU"<<"\n";
@@ -1331,9 +1618,9 @@ RrMultiUserScheduler::FinalizeTxVector(WifiTxVector& txVector, std::string sched
         std::swap(heMuUserInfoMap, txVector.GetHeMuUserInfoMap());
     
         auto candidateIt = m_candidates.begin(); // iterator over the list of candidate receivers
-        auto ruSet = HeRu::GetRusOfType(m_allowedWidth, ruType);
+        auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), ruType, 0, false);
         auto ruSetIt = ruSet.begin();
-        auto central26TonesRus = HeRu::GetCentral26TonesRus(m_allowedWidth, ruType);
+        auto central26TonesRus = HeRu::GetCentral26TonesRus(m_apMac->GetWifiPhy()->GetChannelWidth(), ruType);
         auto central26TonesRusIt = central26TonesRus.begin();
     
         for (std::size_t i = 0; i < nRusAssigned + nCentral26TonesRus; i++)
@@ -1356,8 +1643,7 @@ RrMultiUserScheduler::FinalizeTxVector(WifiTxVector& txVector, std::string sched
         // remove candidates that will not be served
         m_candidates.erase(candidateIt, m_candidates.end());
 
-
-        }
+    }
     }
 
 
@@ -1519,4 +1805,3 @@ RrMultiUserScheduler::ComputeUlMuInfo()
 }
 
 } // namespace ns3
-
