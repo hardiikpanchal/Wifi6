@@ -66,7 +66,6 @@ int count = 10;
 bool prop_scheduler = false;
 
 
-
 TypeId
 RrMultiUserScheduler::GetTypeId()
 {
@@ -144,38 +143,142 @@ RrMultiUserScheduler::GetTypeId()
 
 std::vector<HeRu::RuSpec>
 RrMultiUserScheduler::prop_scheduler_fun(std::list<std::pair<std::list<MasterInfo>::iterator, 
-Ptr<WifiMpdu>>> m_candidates, uint16_t ch_width){
+Ptr<WifiMpdu>>> m_candidates, uint16_t ch_width, bool ul){
     std::vector<HeRu::RuSpec> allocation;
     std::vector<int> ru_array;
-    if(ch_width == 20){
-        int total_width = 9;
-        std::vector<int> queue_array;
+    //////////////////////////////////////////
+    std::vector<int> queue_array;
         double queue_sum = 0;
-        std::cout << "Queue size: ";
+        if(ul){
+            std::cout << "UL Queue size: ";    
+        }else{
+            std::cout << "DL Queue size: ";
+        }
         for(auto it: m_candidates){
-            int sz = m_apMac->GetMaxBufferStatus(it.first->address);
+            int sz = 0;
+            if(ul) sz = m_apMac->GetMaxBufferStatus(it.first->address);
+            else{
+                sz = (dlqueueinfo.find(*(it.first)))->second;
+            }
             std::cout << "station: "<< it.first->address << " " << sz << " ";
             queue_array.push_back(sz);
             queue_sum += sz;
         }std::cout << "\n";
+
+    if(ch_width == 20){ // 20MHz
+        int total_width = 9;
 
         for (int i = 0; i < int(queue_array.size()); i++)
         {
             queue_array[i] = int((queue_array[i]/queue_sum)*total_width);   
         }
 
-        int start_index = 1;
+        int ru_106 = 0;
+        int ru_52 = 0;
+        int ru_26 = 0;
+
         for (int i = 0; i < int(queue_array.size()); i++)
         {
-            if(allocation.size() >= 9){
+            if(ru_array.size() >= 9){
                 break;
             }
-            if(queue_array[i] == 1){
-                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_26_TONE, start_index, true);
-                allocation.push_back(*(ruSet.begin()));
+            if(queue_array[i] == 1){\
+                if(ru_26 >= 9){
+                    continue;
+                }
                 ru_array.push_back(26);
-                start_index+=1;
+                total_width -=1;
+                ru_26++;
             }else if(queue_array[i] >= 2 && queue_array[i] < 4){
+                if(ru_52 >= 4){
+                    continue;
+                }
+                ru_array.push_back(52);
+                total_width-=2;
+                ru_52++;
+            }else if(queue_array[i] >= 4 && queue_array[i] < 9){
+                if(ru_106 >= 2){
+                    continue;
+                }
+                ru_array.push_back(106);
+                total_width-=4;
+                ru_106++;
+            }else if(queue_array[i] == 9){
+                ru_array.push_back(242);
+                total_width-=9;
+                break;
+            }
+                        
+        }
+        for (int i = 0; i < int(ru_array.size()); i++)
+            {
+                if(ru_array[i] == 106){
+                    if(total_width >= 5){
+                        ru_array[i] = 242;
+                        ru_106--;
+                        break;
+                    }
+
+                }else if(ru_array[i] == 52){
+                    if(total_width >= 7){
+                        ru_array[i] = 242;
+                        ru_52--;
+                        break;
+                    }
+                    else if(total_width >= 2){
+                        if(ru_106 >= 2) continue;
+                        ru_array[i] = 106;
+                        ru_106++;
+                        ru_52--;
+                        total_width-=2;
+                    }
+
+                }else if(ru_array[i] == 26){
+                    if(total_width >= 8){
+                        ru_array[i] = 242;
+                        ru_26--;
+                        break;
+                    }
+                    else if(total_width >= 3){
+                        if(ru_106 >= 2) continue;
+                        ru_array[i] = 106;
+                        ru_106++;
+                        ru_26--;
+                        total_width-=3;
+                    }
+                    else if(total_width >= 1){
+                        if(ru_52 >= 4) continue;
+                        ru_array[i] = 52;
+                        ru_52++;
+                        ru_26--;
+                        total_width-=1;
+                    }
+
+                }
+            }
+        
+        int start_index = 1;    
+        for (int i = 0; i < int(ru_array.size()); i++)
+        {
+            if(start_index > 9){
+                break;
+            }
+            if(ru_array[i] == 242){
+                if(start_index == 5) start_index++;
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_242_TONE, start_index, true);
+                allocation.push_back(*(ruSet.begin()));
+                break;
+            }else if(ru_array[i] == 106){
+                if(start_index + 4 > 10) break;
+                if(start_index == 5) start_index++;
+                int final_index = start_index;
+                if(start_index>=1 && start_index <=4) final_index = 1;
+                if(start_index>=6 && start_index <=9) final_index = 2;
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_106_TONE, final_index, true);
+                allocation.push_back(*(ruSet.begin()));
+                start_index+=4;
+            }else if(ru_array[i] == 52){
+                if(start_index + 2 > 10) break;
                 if(start_index == 5) start_index++;
                 int final_index = start_index;
                 if(start_index>=1 && start_index <=2) final_index = 1;
@@ -184,55 +287,179 @@ Ptr<WifiMpdu>>> m_candidates, uint16_t ch_width){
                 if(start_index>=8 && start_index <=9) final_index = 4;
                 auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_52_TONE, final_index, true);
                 allocation.push_back(*(ruSet.begin()));
-                ru_array.push_back(52);
                 start_index+=2;
-            }else if(queue_array[i] >= 4 && queue_array[i] < 9){
-                if(start_index == 5) start_index++;
-                int final_index = start_index;
-                if(start_index>=1 && start_index <=4) final_index = 1;
-                if(start_index>=6 && start_index <=9) final_index = 2;
-                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_106_TONE, final_index, true);
+            }else if(ru_array[i] == 26){
+                if(start_index + 1 > 10) break;
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_26_TONE, start_index, true);
                 allocation.push_back(*(ruSet.begin()));
-                ru_array.push_back(106);
-                start_index+=4;
-            }else if(queue_array[i] == 9){
-                if(start_index == 5) start_index++;
-                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_242_TONE, 1, true);
-                allocation.push_back(*(ruSet.begin()));
-                ru_array.push_back(242);
-                break;
+                start_index+=1;
             }
-        }    
-    }else if(ch_width == 40){
+        }
+        
+    
+    ///////////////////////////////////////   
+    }else if(ch_width == 40){ //40MHz
         int total_width = 18;
-        std::vector<int> queue_array;
-        double queue_sum = 0;
-        std::cout << "Queue size: ";
-        for(auto it: m_candidates){
-            int sz = m_apMac->GetMaxBufferStatus(it.first->address);
-            std::cout << "station: "<< it.first->address << " " << sz << " ";
-            queue_array.push_back(sz);
-            queue_sum += sz;
-        }std::cout << "\n";
-
+        
         for (int i = 0; i < int(queue_array.size()); i++)
         {
             queue_array[i] = int((queue_array[i]/queue_sum)*total_width);
         }
 
-        int start_index = 1;
+        int ru_242 = 0;
+        int ru_106 = 0;
+        int ru_52 = 0;
+        int ru_26 = 0;
+
         for (int i = 0; i < int(queue_array.size()); i++)
         {
-            if(allocation.size() >= 18){
+            if(ru_array.size() >= 18){
                 break;
             }
             
             if(queue_array[i] == 1){
-                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_26_TONE, start_index, true);
-                allocation.push_back(*(ruSet.begin()));
+                if(ru_26 >= 18){
+                    continue;
+                }
                 ru_array.push_back(26);
-                start_index+=1;
+                total_width-=1;
+                ru_26++;
             }else if(queue_array[i] >= 2 && queue_array[i] < 4){
+                if(ru_52 >= 8){
+                    continue;
+                }
+                ru_array.push_back(52);
+                total_width-=2;
+                ru_52++;
+            }else if(queue_array[i] >= 4 && queue_array[i] < 9){
+                if(ru_106 >= 4){
+                    continue;
+                }
+                ru_array.push_back(106);
+                total_width-=4;
+                ru_106++;
+            }else if(queue_array[i] >= 9 && queue_array[i] < 18){
+                if(ru_242 >= 2){
+                    continue;
+                }
+                ru_array.push_back(242);
+                total_width-=9;
+                ru_242++;
+            }else if(queue_array[i] == 18){
+                ru_array.push_back(484);
+                total_width-=18;
+                break;
+            }  
+        }
+        for (int i = 0; i < int(ru_array.size()); i++)
+            {
+                if(ru_array[i] == 242){
+                    if(total_width >= 9){
+                        ru_array[i] = 484;
+                        ru_242--;
+                        break;
+                    }
+                }
+                else if(ru_array[i] == 106){
+                    if(total_width >= 14){
+                        ru_array[i] = 484;
+                        ru_106--;
+                        break;
+                    }
+                    else if(total_width >= 5){
+                        if(ru_242 >= 2) continue;
+                        ru_array[i] = 242;
+                        ru_242++;
+                        ru_106--;
+                        total_width-=5;
+                    }
+
+                }else if(ru_array[i] == 52){
+                    if(total_width >= 16){
+                        ru_array[i] = 484;
+                        ru_52--;
+                        break;
+                    }
+                    else if(total_width >= 7){
+                        if(ru_242 >= 2) continue;
+                        ru_array[i] = 242;
+                        ru_242++;
+                        ru_52--;
+                        total_width-=7;
+                    }
+                    else if(total_width >= 2){
+                        if(ru_106 >= 4) continue;
+                        ru_array[i] = 106;
+                        ru_106++;
+                        ru_52--;
+                        total_width-=2;
+                    }
+
+                }else if(ru_array[i] == 26){
+                    if(total_width >= 17){
+                        ru_array[i] = 484;
+                        ru_26--;
+                        break;
+                    }
+                    else if(total_width >= 8){
+                        if(ru_242 >= 2) continue;
+                        ru_array[i] = 242;
+                        ru_242++;
+                        ru_26--;
+                        total_width-=8;
+                    }
+                    else if(total_width >= 3){
+                        if(ru_106 >= 4) continue;
+                        ru_array[i] = 106;
+                        ru_106++;
+                        ru_26--;
+                        total_width-=3;
+                    }
+                    else if(total_width >= 1){
+                        if(ru_52 >= 8) continue;
+                        ru_array[i] = 52;
+                        ru_52++;
+                        ru_26--;
+                        total_width-=1;
+                    }
+
+                }
+            }
+        int start_index = 1;    
+        for (int i = 0; i < int(ru_array.size()); i++)
+        {
+            if(start_index > 18){
+                break;
+            }
+            if(ru_array[i] == 484){
+                if(start_index == 5 || start_index == 14) start_index++;
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_484_TONE, start_index, true);
+                allocation.push_back(*(ruSet.begin()));
+                break;
+            }
+            else if(ru_array[i] == 242){
+                if(start_index + 9 > 19) break;
+                if(start_index == 5 || start_index == 14) start_index++;
+                int final_index = start_index;
+                if(start_index>=1 && start_index <=9) final_index = 1;
+                if(start_index>=10 && start_index <=18) final_index = 2;
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_242_TONE, final_index, true);
+                allocation.push_back(*(ruSet.begin()));
+                start_index+=9; 
+            }else if(ru_array[i] == 106){
+                if(start_index + 4 > 19) break;
+                if(start_index == 5 || start_index == 14) start_index++;
+                int final_index = start_index;
+                if(start_index>=1 && start_index <=4) final_index = 1;
+                if(start_index>=6 && start_index <=9) final_index = 2;
+                if(start_index>=10 && start_index <=13) final_index = 3;
+                if(start_index>=15 && start_index <=18) final_index = 4;
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_106_TONE, final_index, true);
+                allocation.push_back(*(ruSet.begin()));
+                ru_array.push_back(106);
+                start_index+=4;
+            }else if(ru_array[i] == 52){
+                if(start_index + 2 > 19) break;
                 if(start_index == 5 || start_index == 14) start_index++;
                 int final_index = start_index;
                 if(start_index>=1 && start_index <=2) final_index = 1;
@@ -245,67 +472,235 @@ Ptr<WifiMpdu>>> m_candidates, uint16_t ch_width){
                 if(start_index>=17 && start_index <=18) final_index = 8;
                 auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_52_TONE, final_index, true);
                 allocation.push_back(*(ruSet.begin()));
-                ru_array.push_back(52);
                 start_index+=2;
+            }else if(ru_array[i] == 26){
+                if(start_index + 1 > 19) break;
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_26_TONE, start_index, true);
+                allocation.push_back(*(ruSet.begin()));
+                start_index+=1;
+            }
+        }
+    ///////////////////////////////////
+    }else if(ch_width == 80){ //80MHz
+        int total_width = 37;
+        
+        for (int i = 0; i < int(queue_array.size()); i++)
+        {
+            queue_array[i] = int((queue_array[i]/queue_sum)*total_width);
+        }
+        
+        int ru_484 = 0;
+        int ru_242 = 0;
+        int ru_106 = 0;
+        int ru_52 = 0;
+        int ru_26 = 0;
+
+        for (int i = 0; i < int(queue_array.size()); i++)
+        {
+            if(ru_array.size() >= 37){
+                break;
+            }
+            
+            if(queue_array[i] == 1){
+                if(ru_26 >= 37){
+                    continue;
+                }
+                ru_array.push_back(26);
+                total_width-=1;
+                ru_26++;
+            }else if(queue_array[i] >= 2 && queue_array[i] < 4){
+                if(ru_52 >= 16){
+                    continue;
+                }
+                ru_array.push_back(52);
+                total_width-=2;
+                ru_52++;
             }else if(queue_array[i] >= 4 && queue_array[i] < 9){
-                if(start_index == 5 || start_index == 14) start_index++;
+                if(ru_106 >= 8){
+                    continue;
+                }
+                ru_array.push_back(106);
+                total_width-=4;
+                ru_106++;
+            }else if(queue_array[i] >= 9 && queue_array[i] < 18){
+                if(ru_242 >= 4){
+                    continue;
+                }
+                ru_array.push_back(242);
+                total_width-=9;
+                ru_242++;
+            }else if(queue_array[i] >= 18 && queue_array[i] < 37){
+                if(ru_484 >= 2){
+                    continue;
+                }
+                ru_array.push_back(484);
+                total_width-=18;
+                ru_484++;
+            }else if(queue_array[i] == 37){
+                ru_array.push_back(996);
+                total_width-=37;
+                break;
+            }
+        }
+        for (int i = 0; i < int(ru_array.size()); i++)
+            {
+                if(ru_array[i] == 484){
+                    if(total_width >= 19){
+                        ru_array[i] = 996;
+                        ru_484--;
+                        break;
+                    }
+                }
+                else if(ru_array[i] == 242){
+                    if(total_width >= 28){
+                        ru_array[i] = 996;
+                        ru_242--;
+                        break;
+                    }
+                    else if(total_width >= 9){
+                        if(ru_484 >= 2) continue;
+                        ru_array[i] = 484;
+                        ru_484++;
+                        ru_242--;
+                        total_width-=9;
+                    }
+                }
+                else if(ru_array[i] == 106){
+                    if(total_width >= 33){
+                        ru_array[i] = 996;
+                        ru_106--;
+                        break;
+                    }
+                    else if(total_width >= 14){
+                        if(ru_242 >= 2) continue;
+                        ru_array[i] = 484;
+                        ru_484++;
+                        ru_106--;
+                        total_width-=14;
+                    }
+                    else if(total_width >= 5){
+                        if(ru_242 >= 4) continue;
+                        ru_array[i] = 242;
+                        ru_242++;
+                        ru_106--;
+                        total_width-=5;
+                    }
+
+                }else if(ru_array[i] == 52){
+                    if(total_width >= 35){
+                        ru_array[i] = 996;
+                        ru_52--;
+                        break;
+                    }
+                    else if(total_width >= 16){
+                        if(ru_484 >= 2) continue;
+                        ru_array[i] = 484;
+                        ru_484++;
+                        ru_52--;
+                        total_width-=16;
+                    }
+                    else if(total_width >= 7){
+                        if(ru_242 >= 4) continue;
+                        ru_array[i] = 242;
+                        ru_242++;
+                        ru_52--;
+                        total_width-=7;
+                    }
+                    else if(total_width >= 2){
+                        if(ru_106 >= 8) continue;
+                        ru_array[i] = 106;
+                        ru_106++;
+                        ru_52--;
+                        total_width-=2;
+                    }
+
+                }else if(ru_array[i] == 26){
+                    if(total_width >= 36){
+                        ru_array[i] = 996;
+                        ru_26--;
+                        break;
+                    }
+                    else if(total_width >= 17){
+                        if(ru_484 >= 2) continue;
+                        ru_array[i] = 484;
+                        ru_484++;
+                        ru_26--;
+                        total_width -= 17;
+                    }
+                    else if(total_width >= 8){
+                        if(ru_242 >= 4) continue;
+                        ru_array[i] = 242;
+                        ru_242++;
+                        ru_26--;
+                        total_width-=8;
+                    }
+                    else if(total_width >= 3){
+                        if(ru_106 >= 8) continue;
+                        ru_array[i] = 106;
+                        ru_106++;
+                        ru_26--;
+                        total_width-=3;
+                    }
+                    else if(total_width >= 1){
+                        if(ru_52 >= 16) continue;
+                        ru_array[i] = 52;
+                        ru_52++;
+                        ru_26--;
+                        total_width-=1;
+                    }
+
+                }
+            }
+        int start_index = 1;    
+        for (int i = 0; i < int(ru_array.size()); i++)
+        {
+            if(start_index > 37){
+                break;
+            }
+            if(ru_array[i] == 996){
+                if(start_index == 5 || start_index == 14 || start_index == 19 || start_index == 24 || start_index == 33) start_index++;
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_996_TONE, start_index, true);
+                allocation.push_back(*(ruSet.begin()));
+                break;
+            }
+            else if(ru_array[i] == 484){
+                if(start_index + 18 > 38) break;
+                if(start_index == 5 || start_index == 14 || start_index == 19 || start_index == 24 || start_index == 33) start_index++;
+                int final_index = start_index;
+                if(start_index>=1 && start_index <=18) final_index = 1;
+                if(start_index>=20 && start_index <=37) final_index = 2;
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_484_TONE, final_index, true);
+                allocation.push_back(*(ruSet.begin()));
+                start_index+=18;
+                }
+            else if(ru_array[i] == 242){
+                if(start_index + 9 > 38) break;
+                if(start_index == 5 || start_index == 14 || start_index == 19 || start_index == 24 || start_index == 33) start_index++;
+                int final_index = start_index;
+                if(start_index>=1 && start_index <=9) final_index = 1;
+                if(start_index>=10 && start_index <=18) final_index = 2;
+                if(start_index>=20 && start_index <=28) final_index = 3;
+                if(start_index>=29 && start_index <=37) final_index = 4;
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_242_TONE, final_index, true);
+                allocation.push_back(*(ruSet.begin()));
+                start_index+=9; 
+            }else if(ru_array[i] == 106){
+                if(start_index + 4 > 38) break;
+                if(start_index == 5 || start_index == 14 || start_index == 19 || start_index == 24 || start_index == 33) start_index++;
                 int final_index = start_index;
                 if(start_index>=1 && start_index <=4) final_index = 1;
                 if(start_index>=6 && start_index <=9) final_index = 2;
                 if(start_index>=10 && start_index <=13) final_index = 3;
                 if(start_index>=15 && start_index <=18) final_index = 4;
+                if(start_index>=20 && start_index <=23) final_index = 5;
+                if(start_index>=25 && start_index <=28) final_index = 6;
+                if(start_index>=29 && start_index <=32) final_index = 7;
+                if(start_index>=34 && start_index <=37) final_index = 8;
                 auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_106_TONE, final_index, true);
                 allocation.push_back(*(ruSet.begin()));
-                ru_array.push_back(106);
                 start_index+=4;
-            }else if(queue_array[i] >= 9 && queue_array[i] < 18){
-                if(start_index == 5 || start_index == 14) start_index++;
-                int final_index = start_index;
-                if(start_index>=1 && start_index <=9) final_index = 1;
-                if(start_index>=10 && start_index <=18) final_index = 2;
-                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_242_TONE, final_index, true);
-                allocation.push_back(*(ruSet.begin()));
-                ru_array.push_back(242);
-                start_index+=9;
-            }else if(queue_array[i] == 18){
-                if(start_index == 5 || start_index == 14) start_index++;
-                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_484_TONE, 1, true);
-                allocation.push_back(*(ruSet.begin()));
-                ru_array.push_back(484);
-                break;
-            }
-        }
-    }else if(ch_width == 80){
-        int total_width = 37;
-        std::vector<int> queue_array;
-        double queue_sum = 0;
-        std::cout << "Queue size: ";
-        for(auto it: m_candidates){
-            int sz = m_apMac->GetMaxBufferStatus(it.first->address);
-            std::cout << "station: "<< it.first->address << " " << sz << " ";
-            queue_array.push_back(sz);
-            queue_sum += sz;
-        }std::cout << "\n";
-
-        for (int i = 0; i < int(queue_array.size()); i++)
-        {
-            queue_array[i] = int((queue_array[i]/queue_sum)*total_width);
-        }
-        int start_index = 1;
-        int ru_106 = 0;
-
-        for (int i = 0; i < int(queue_array.size()); i++)
-        {
-            if(allocation.size() >= 37){
-                break;
-            }
-            
-            if(queue_array[i] == 1){
-                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_26_TONE, start_index, true);
-                allocation.push_back(*(ruSet.begin()));
-                ru_array.push_back(26);
-                start_index+=1;
-            }else if(queue_array[i] >= 2 && queue_array[i] < 4){
+            }else if(ru_array[i] == 52){
+                if(start_index + 2 > 38) break;
                 if(start_index == 5 || start_index == 14 || start_index == 19 || start_index == 24 || start_index == 33) start_index++;
                 int final_index = start_index;
                 if(start_index>=1 && start_index <=2) final_index = 1;
@@ -326,53 +721,12 @@ Ptr<WifiMpdu>>> m_candidates, uint16_t ch_width){
                 if(start_index>=36 && start_index <=37) final_index = 16;
                 auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_52_TONE, final_index, true);
                 allocation.push_back(*(ruSet.begin()));
-                ru_array.push_back(52);
                 start_index+=2;
-            }else if(queue_array[i] >= 4 && queue_array[i] < 9){
-                if(start_index == 5 || start_index == 14 || start_index == 19 || start_index == 24 || start_index == 33) start_index++;
-                int final_index = start_index;
-                if(start_index>=1 && start_index <=4) final_index = 1;
-                if(start_index>=6 && start_index <=9) final_index = 2;
-                if(start_index>=10 && start_index <=13) final_index = 3;
-                if(start_index>=15 && start_index <=18) final_index = 4;
-                if(start_index>=20 && start_index <=23) final_index = 5;
-                if(start_index>=25 && start_index <=28) final_index = 6;
-                if(start_index>=29 && start_index <=32) final_index = 7;
-                if(start_index>=34 && start_index <=37) final_index = 8;
-                if(ru_106 >= 8){
-                    continue;
-                }
-                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_106_TONE, final_index, true);
+            }else if(ru_array[i] == 26){
+                if(start_index + 1 > 38) break;
+                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_26_TONE, start_index, true);
                 allocation.push_back(*(ruSet.begin()));
-                ru_106++;
-                ru_array.push_back(106);
-                start_index+=4;
-            }else if(queue_array[i] >= 9 && queue_array[i] < 18){
-                if(start_index == 5 || start_index == 14 || start_index == 19 || start_index == 24 || start_index == 33) start_index++;
-                int final_index = start_index;
-                if(start_index>=1 && start_index <=9) final_index = 1;
-                if(start_index>=10 && start_index <=18) final_index = 2;
-                if(start_index>=20 && start_index <=28) final_index = 3;
-                if(start_index>=29 && start_index <=37) final_index = 4;
-                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_242_TONE, final_index, true);
-                allocation.push_back(*(ruSet.begin()));
-                ru_array.push_back(242);
-                start_index+=9;
-            }else if(queue_array[i] >= 18 && queue_array[i] < 37){
-                if(start_index == 5 || start_index == 14 || start_index == 19 || start_index == 24 || start_index == 33) start_index++;
-                int final_index = start_index;
-                if(start_index>=1 && start_index <=18) final_index = 1;
-                if(start_index>=20 && start_index <=37) final_index = 2;
-                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_484_TONE, final_index, true);
-                allocation.push_back(*(ruSet.begin()));
-                ru_array.push_back(484);
-                start_index+=18;
-            }else if(queue_array[i] == 37){
-                if(start_index == 5 || start_index == 14 || start_index == 19 || start_index == 24 || start_index == 33) start_index++;
-                auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_996_TONE, 1, true);
-                allocation.push_back(*(ruSet.begin()));
-                ru_array.push_back(996);
-                break;
+                start_index+=1;
             }
         }
     }
@@ -381,11 +735,13 @@ Ptr<WifiMpdu>>> m_candidates, uint16_t ch_width){
         std::cout << it << " ";
     }
     std::cout << "\n";
+
     std::cout << "RU allocation: ";
     for(auto it: allocation){
         std::cout << it << " "; 
     }
     std::cout << "\n";
+    
     return allocation;
 }
 
@@ -571,7 +927,7 @@ RrMultiUserScheduler::GetTxVectorForUlMu(Func canBeSolicited, bool isbasictf)
     while (staIt != m_staListUl.end())
     {
         NS_LOG_DEBUG("Next candidate STA (MAC=" << staIt->address << ", AID=" << staIt->aid << ")");
-        // std::cout<<" Address : "<<staIt->address<<" has buffer "<<unsigned(m_apMac->GetMaxBufferStatus(staIt->address))<<"\n";
+        std::cout<<" Address : "<<staIt->address<<" has buffer "<<unsigned(m_apMac->GetMaxBufferStatus(staIt->address))<<"\n";
         if(m_enableBsrp){
             if(m_apMac->GetMaxBufferStatus(staIt->address) == 0) { staIt++; continue;}
         }
@@ -1501,9 +1857,9 @@ RrMultiUserScheduler::FinalizeTxVector(WifiTxVector& txVector, std::string sched
         std::swap(heMuUserInfoMap, txVector.GetHeMuUserInfoMap());
 
         auto candidateIt = m_candidates.begin(); // iterator over the list of candidate receivers
-        
+        std::cout << "prop dl"<<"\n";
         std::vector<HeRu::RuSpec> RU_array;
-        RU_array = prop_scheduler_fun(m_candidates, m_apMac->GetWifiPhy()->GetChannelWidth());
+        RU_array = prop_scheduler_fun(m_candidates, m_apMac->GetWifiPhy()->GetChannelWidth(), false);
 
         for (std::size_t i = 0; i < RU_array.size(); i++)
         {
@@ -1611,9 +1967,9 @@ RrMultiUserScheduler::FinalizeTxVector(WifiTxVector& txVector, std::string sched
         std::swap(heMuUserInfoMap, txVector.GetHeMuUserInfoMap());
     
         auto candidateIt = m_candidates.begin(); // iterator over the list of candidate receivers
-        
+        std::cout << "prop ul"<<"\n";
         std::vector<HeRu::RuSpec> RU_array;
-        RU_array = prop_scheduler_fun(m_candidates, m_apMac->GetWifiPhy()->GetChannelWidth());
+        RU_array = prop_scheduler_fun(m_candidates, m_apMac->GetWifiPhy()->GetChannelWidth(), true);
     
         for (std::size_t i = 0; i < RU_array.size(); i++)
         {
