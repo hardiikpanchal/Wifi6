@@ -182,7 +182,7 @@ Ptr<WifiMpdu>>> m_candidates, uint16_t ch_width, bool ul){
             if(ru_array.size() >= 9){
                 break;
             }
-            if(queue_array[i] == 1){\
+            if(queue_array[i] == 1){
                 if(ru_26 >= 9){
                     continue;
                 }
@@ -301,10 +301,12 @@ Ptr<WifiMpdu>>> m_candidates, uint16_t ch_width, bool ul){
     }else if(ch_width == 40){ //40MHz
         int total_width = 18;
         
+        std::cout << "Queue array: ";
         for (int i = 0; i < int(queue_array.size()); i++)
         {
             queue_array[i] = int((queue_array[i]/queue_sum)*total_width);
-        }
+            std::cout << queue_array[i] << " ";
+        }std::cout << "\n";
 
         int ru_242 = 0;
         int ru_106 = 0;
@@ -351,6 +353,12 @@ Ptr<WifiMpdu>>> m_candidates, uint16_t ch_width, bool ul){
                 break;
             }  
         }
+        std::cout << "RU array start: ";
+        for(auto it: ru_array){
+            std::cout << it << " ";
+        }
+        std::cout << "\n";
+
         for (int i = 0; i < int(ru_array.size()); i++)
             {
                 if(ru_array[i] == 242){
@@ -456,7 +464,6 @@ Ptr<WifiMpdu>>> m_candidates, uint16_t ch_width, bool ul){
                 if(start_index>=15 && start_index <=18) final_index = 4;
                 auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_106_TONE, final_index, true);
                 allocation.push_back(*(ruSet.begin()));
-                ru_array.push_back(106);
                 start_index+=4;
             }else if(ru_array[i] == 52){
                 if(start_index + 2 > 19) break;
@@ -2275,3 +2282,4 @@ RrMultiUserScheduler::ComputeUlMuInfo()
 }
 
 } // namespace ns3
+
