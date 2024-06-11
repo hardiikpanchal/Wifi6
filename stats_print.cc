@@ -389,7 +389,7 @@ private:
   uint16_t m_nObss{0}; // number of overlapping BSSs
   uint16_t m_nStationsPerObss{0}; // number of non-AP stations per each OBSS
   WifiStandard m_obssStandard;
-  double m_radius{5}; // meters
+  double m_radius{0}; // meters
   bool m_enableDlOfdma{true};
   bool m_forceDlOfdma{false};
   //enable ofdma
@@ -469,7 +469,7 @@ private:
   // std::string m_dlAckSeqType{"ACK-SU-FORMAT"};
   uint16_t m_baBufferSize{256};
   std::string m_queueDisc{"default"};
-  bool m_enablePcap{false};
+  bool m_enablePcap{true};
   double m_warmup{0.5}; // duration of the warmup period (seconds)
   uint32_t m_tcpSegmentSize{1500}; // TCP maximum segment size (0 = use default)
   uint32_t m_tcpInitialCwnd{0}; // TCP initial congestion window size (segments, 0 = use default)
@@ -950,9 +950,9 @@ WifiOfdmaExample::GenerateTrafficFlows ()
 
 
   //original code/////
-  bool haptic = false;
+  bool haptic = true;
 
-  bool haptic_new = true;
+  bool haptic_new = false;
 
   if((haptic == false) && (haptic_new == false)){
 
@@ -963,7 +963,7 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           Flow flow;
           flow.m_ac = AC_BE;
           flow.m_l4Proto = Flow::UDP;
-          flow.m_payloadSize = 1500;
+          flow.m_payloadSize = m_frameSize;
           flow.m_stationId = staId;
           flow.m_dataRate = 1 * m_dlFlowDataRate * 1e6;
           flow.m_direction = Flow::DOWNLINK;
@@ -983,7 +983,7 @@ WifiOfdmaExample::GenerateTrafficFlows ()
 
           
         }
-      if (m_ulTraffic != "None" && false)
+      if (m_ulTraffic != "None")
         {
           Flow flow; 
           // if(staId == 2){
@@ -1012,13 +1012,32 @@ WifiOfdmaExample::GenerateTrafficFlows ()
 
           flow.m_ac = AC_BE;
           flow.m_l4Proto = Flow::UDP;
-          flow.m_payloadSize = 1500;
+          flow.m_payloadSize = m_frameSize;
           flow.m_stationId = staId;
           flow.m_dataRate = 1 * m_ulFlowDataRate * 1e6;
+          // if(staId == 2){
+          //   flow.m_dataRate = 1 * (m_ulFlowDataRate - 1) * 1e6;  
+          // }
+          // if(staId == 3){
+          //   flow.m_dataRate = 1 * (m_ulFlowDataRate + 1.5) * 1e6;  
+          // }
+          
           flow.m_direction = Flow::UPLINK;
           flow.m_dstPort = dstPort++;
           NS_LOG_DEBUG ("Adding flow " << flow);
           m_flows.push_back (flow);
+
+          // if(staId == 1){
+          // flow.m_ac = AC_VO;
+          // flow.m_l4Proto = Flow::UDP;
+          // flow.m_payloadSize = 1;
+          // flow.m_stationId = staId;
+          // flow.m_dataRate = 1 * (m_ulFlowDataRate/2) * 1e3;
+          // flow.m_direction = Flow::UPLINK;
+          // flow.m_dstPort = dstPort++;
+          // NS_LOG_DEBUG ("Adding flow " << flow);
+          // m_flows.push_back (flow);
+          // }
           
         }
     }
@@ -1315,17 +1334,17 @@ WifiOfdmaExample::GenerateTrafficFlows ()
 
           // //////////////////
 
-          flow.m_ac = AC_VO; //audio
-          flow.m_l4Proto = Flow::UDP;
-          flow.m_payloadSize = 160;
-          // flow.m_payloadSize = 2500;
-          flow.m_stationId = staId;
-          flow.m_dataRate = 64 * 1e3;
-          flow.m_direction = Flow::UPLINK;
-          flow.m_dstPort = dstPort++;
-          NS_LOG_DEBUG ("Adding flow " << flow);
-          //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
-          m_flows.push_back (flow);
+          // flow.m_ac = AC_VO; //audio
+          // flow.m_l4Proto = Flow::UDP;
+          // flow.m_payloadSize = 160;
+          // // flow.m_payloadSize = 2500;
+          // flow.m_stationId = staId;
+          // flow.m_dataRate = 64 * 1e3;
+          // flow.m_direction = Flow::UPLINK;
+          // flow.m_dstPort = dstPort++;
+          // NS_LOG_DEBUG ("Adding flow " << flow);
+          // //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          // m_flows.push_back (flow);
           }
           }else if(staId == 6){ // Haptic UL(Audio, video and pos)
           flow.m_ac = AC_VO; //haptic flow 
@@ -1514,8 +1533,10 @@ WifiOfdmaExample::Setup (void)
       phy.SetPcapDataLinkType (WifiPhyHelper::DLT_IEEE802_11_RADIO);
       phy.SetErrorRateModel ("ns3::NistErrorRateModel");
       phy.SetChannel (spectrumChannel);
-      std::string channelStr("{" + std::to_string(0) + ", " + std::to_string(m_channelWidth) + ", ");
-      channelStr += "BAND_6GHZ, 0}";
+      std::string channelStr("{0, " + std::to_string(m_channelWidth) + ", BAND_6GHZ, 0}");
+      // channelStr += "BAND_6GHZ, 0}";
+
+      // phy.set("channelWidth", )
       
       phy.Set("ChannelSettings", StringValue(channelStr));
       if (m_enableThresholdPreambleDetection)
@@ -1590,6 +1611,8 @@ WifiOfdmaExample::Setup (void)
             {
               m_ulschedulerLogic = "Bellalta";
             }
+          std::string bw = std::to_string(m_channelWidth);
+
           mac.SetMultiUserScheduler ("ns3::RrMultiUserScheduler",
                                      "NStations", UintegerValue (m_maxNRus),
                                      "ForceDlOfdma", BooleanValue (m_forceDlOfdma),
@@ -1599,9 +1622,10 @@ WifiOfdmaExample::Setup (void)
                                      "UlPsduSize", UintegerValue (m_ulPsduSize),
                                      "UseCentral26TonesRus", BooleanValue (m_useCentral26TonesRus),
                                      "DLSchedulerLogic", StringValue (m_dlschedulerLogic),
-                                     "ULSchedulerLogic", StringValue (m_ulschedulerLogic)
+                                     "ULSchedulerLogic", StringValue (m_ulschedulerLogic),
+                                     "Width", StringValue(bw)
                                     //  "MCS_mode", StringValue ("HeMcs" + m_heRate)
-                                    );
+                                    );                           
         }
       // if (m_scheduler == "rr" && bss == 0 && m_enableDlOfdma)
       //   {
@@ -1713,6 +1737,7 @@ WifiOfdmaExample::Setup (void)
   // XXX Set large beacon generation interval at the AP
   dev->GetMac ()->SetAttribute ("BeaconInterval", TimeValue (NanoSeconds (102400000 * 20)));
   m_band = dev->GetPhy ()->GetPhyBand ();
+  std::cout << "band: "<<m_band << "\n";
   // Configure TXOP Limit and MSDU lifetime on the AP
   PointerValue ptr;
   dev->GetMac ()->GetAttribute ("BE_Txop", ptr);
@@ -3065,9 +3090,10 @@ WifiOfdmaExample::StartTraffic (void)
 
       // clientApp->SetAttribute ("OnTime", StringValue ("ns3::ConstantRandomVariable[Constant = 1]"));}
       
-     }
+     
       // clientApp->SetAttribute("OnTime", StringValue("ns3::WeibullRandomVariable[Shape=3.0|Scale=2.0]"));
-
+     
+     }
       // clientApp->SetAttribute("OnTime", StringValue("ns3::NormalRandomVariable[Mean=2.0|Variance=0.1]"));
       // std::cout << "nodenode: " << clientApp->GetNode() << '\n';
 
@@ -4582,3 +4608,4 @@ main (int argc, char *argv[])
 
   return 0;
 }
+
