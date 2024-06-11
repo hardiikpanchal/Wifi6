@@ -935,8 +935,10 @@ RrMultiUserScheduler::GetTxVectorForUlMu(Func canBeSolicited, bool isbasictf)
     {
         NS_LOG_DEBUG("Next candidate STA (MAC=" << staIt->address << ", AID=" << staIt->aid << ")");
         std::cout<<" Address : "<<staIt->address<<" has buffer "<<unsigned(m_apMac->GetMaxBufferStatus(staIt->address))<<"\n";
+        
         if(m_enableBsrp){
-            if(m_apMac->GetMaxBufferStatus(staIt->address) == 0) { staIt++; continue;}
+            auto x = m_apMac->GetMaxBufferStatus(staIt->address);
+            if((x == 0)) { staIt++; continue;}
         }
 
         if (!canBeSolicited(*staIt))
@@ -2282,4 +2284,3 @@ RrMultiUserScheduler::ComputeUlMuInfo()
 }
 
 } // namespace ns3
-
