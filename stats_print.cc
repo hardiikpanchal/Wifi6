@@ -465,8 +465,8 @@ private:
   // uint32_t m_viMuEdcaTimer{0}; // microseconds
   // uint32_t m_voMuEdcaTimer{0}; // microseconds
   bool m_enableRts{false};
-  std::string m_dlAckSeqType{"AGGR-MU-BAR"};
-  // std::string m_dlAckSeqType{"ACK-SU-FORMAT"};
+  // std::string m_dlAckSeqType{"AGGR-MU-BAR"};
+  std::string m_dlAckSeqType{"ACK-SU-FORMAT"};
   uint16_t m_baBufferSize{256};
   std::string m_queueDisc{"default"};
   bool m_enablePcap{true};
@@ -950,9 +950,9 @@ WifiOfdmaExample::GenerateTrafficFlows ()
 
 
   //original code/////
-  bool haptic = true;
+  bool haptic = false;
 
-  bool haptic_new = false;
+  bool haptic_new = true;
 
   if((haptic == false) && (haptic_new == false)){
 
@@ -1011,7 +1011,7 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           // m_flows.push_back (flow);
 
           flow.m_ac = AC_BE;
-          flow.m_l4Proto = Flow::UDP;
+          flow.m_l4Proto = Flow::TCP;
           flow.m_payloadSize = m_frameSize;
           flow.m_stationId = staId;
           flow.m_dataRate = 1 * m_ulFlowDataRate * 1e6;
@@ -1233,7 +1233,7 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
           m_flows.push_back (flow);
           }
-          else if(staId == 4){ // file download DL
+          else if(staId == 4 && false){ // file download DL
           flow.m_ac = AC_BE;
           flow.m_l4Proto = Flow::TCP;
           flow.m_payloadSize = 1500;
@@ -1334,17 +1334,17 @@ WifiOfdmaExample::GenerateTrafficFlows ()
 
           // //////////////////
 
-          // flow.m_ac = AC_VO; //audio
-          // flow.m_l4Proto = Flow::UDP;
-          // flow.m_payloadSize = 160;
-          // // flow.m_payloadSize = 2500;
-          // flow.m_stationId = staId;
-          // flow.m_dataRate = 64 * 1e3;
-          // flow.m_direction = Flow::UPLINK;
-          // flow.m_dstPort = dstPort++;
-          // NS_LOG_DEBUG ("Adding flow " << flow);
-          // //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
-          // m_flows.push_back (flow);
+          flow.m_ac = AC_VO; //audio
+          flow.m_l4Proto = Flow::UDP;
+          flow.m_payloadSize = 160;
+          // flow.m_payloadSize = 2500;
+          flow.m_stationId = staId;
+          flow.m_dataRate = 64 * 1e3;
+          flow.m_direction = Flow::UPLINK;
+          flow.m_dstPort = dstPort++;
+          NS_LOG_DEBUG ("Adding flow " << flow);
+          //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          m_flows.push_back (flow);
           }
           }else if(staId == 6){ // Haptic UL(Audio, video and pos)
           flow.m_ac = AC_VO; //haptic flow 
@@ -2259,7 +2259,7 @@ WifiOfdmaExample::PrintResults (std::ostream &os)
         for (std::size_t i = 0; i < m_flows.size (); i++)
     {
         double avglat = 0;
-        size_t count;
+        size_t count = 0;
         count = m_flows[i].m_latency.m_samples.size();
         for (auto it = m_flows[i].m_latency.m_samples.begin (); it != m_flows[i].m_latency.m_samples.end(); ++it)
         {
@@ -2268,22 +2268,24 @@ WifiOfdmaExample::PrintResults (std::ostream &os)
 
       os << "FLOW " << m_flows[i] << std::endl;
       if(m_flows[i].m_direction == Flow::DOWNLINK){
-        aggr_thr_dl += (m_flows[i].m_rxBytes * 8.) / (m_simulationTime * 1e6);
+        aggr_thr_dl += (m_flows[i].m_rxPackets*m_flows[i].m_payloadSize * 8.) / (m_simulationTime * 1e6);
         aggr_lat_dl += avglat/double(count);
         // aggr_dl_pkt += (m_flows[i].m_rxBytes)/(1610);
         aggr_dl_pkt += m_flows[i].m_rxPackets;
       }else{
-        aggr_thr_ul += (m_flows[i].m_rxBytes * 8.) / (m_simulationTime * 1e6);
+        aggr_thr_ul += (m_flows[i].m_rxPackets*m_flows[i].m_payloadSize * 8.) / (m_simulationTime * 1e6);
         aggr_lat_ul += avglat/double(count);
         // aggr_ul_pkt += (m_flows[i].m_rxBytes)/(1610);
         aggr_ul_pkt += m_flows[i].m_rxPackets;
       }
       uint64_t rcv;
       if(m_flows[i].m_l4Proto == Flow::TCP){
-        rcv = DynamicCast<PacketSink> (m_sinkApps.Get (i))->GetTotalRx ();
+        // rcv = DynamicCast<PacketSink> (m_sinkApps.Get (i))->GetTotalRx ();
+        // rcv = m_flows[i].m_rxBytes;
+        rcv = m_flows[i].m_rxPackets*m_flows[i].m_payloadSize;
       }
       else{
-        rcv = m_flows[i].m_rxBytes;
+        rcv = m_flows[i].m_rxPackets*m_flows[i].m_payloadSize;
       }
       
       os << std::fixed << std::setprecision (3)
@@ -2322,7 +2324,7 @@ WifiOfdmaExample::PrintResults (std::ostream &os)
       if(m_flows[i].m_direction == Flow::DOWNLINK) dl_size++;
       if(m_flows[i].m_direction == Flow::UPLINK) ul_size++;
         double avglat = 0;
-        uint32_t count;
+        uint32_t count = 0;
         count = m_flows[i].m_latency.m_samples.size();
         for (auto it = m_flows[i].m_latency.m_samples.begin (); it != m_flows[i].m_latency.m_samples.end(); ++it)
         {
@@ -2331,12 +2333,12 @@ WifiOfdmaExample::PrintResults (std::ostream &os)
 
       os << "FLOW " << m_flows[i] << std::endl;
       if(m_flows[i].m_direction == Flow::DOWNLINK){
-        aggr_thr_dl += (m_flows[i].m_rxBytes * 8.) / (m_simulationTime * 1e6);
+        aggr_thr_dl += (m_flows[i].m_rxPackets*m_flows[i].m_payloadSize * 8.) / (m_simulationTime * 1e6);
         aggr_lat_dl += avglat/double(count);
         // aggr_dl_pkt += (m_flows[i].m_rxBytes)/(1610);
         aggr_dl_pkt += m_flows[i].m_rxPackets;
       }else{
-        aggr_thr_ul += (m_flows[i].m_rxBytes * 8.) / (m_simulationTime * 1e6);
+        aggr_thr_ul += (m_flows[i].m_rxPackets*m_flows[i].m_payloadSize * 8.) / (m_simulationTime * 1e6);
         aggr_lat_ul += avglat/double(count);
         // aggr_ul_pkt += (m_flows[i].m_rxBytes)/(1610);
         aggr_ul_pkt += m_flows[i].m_rxPackets;
@@ -2344,7 +2346,7 @@ WifiOfdmaExample::PrintResults (std::ostream &os)
       
       
       os << std::fixed << std::setprecision (3)
-         << "Throughput: " << (m_flows[i].m_rxBytes * 8.) / (m_simulationTime * 1e6)
+         << "Throughput: " << (m_flows[i].m_rxPackets*m_flows[i].m_payloadSize * 8.) / (m_simulationTime * 1e6)
          << " Latency: " << avglat/double(count) << " Count :" << count << std::endl;
          
         //  << "Latency: " << m_flows[i].m_latency << std::endl
@@ -2369,7 +2371,7 @@ WifiOfdmaExample::PrintResults (std::ostream &os)
     {
       os << "FLOW " << m_flows[i] << std::endl
          << std::fixed << std::setprecision (3)
-         << "Throughput: " << (m_flows[i].m_rxBytes * 8.) / (m_simulationTime * 1e6) << std::endl
+         << "Throughput: " << (m_flows[i].m_rxPackets*m_flows[i].m_payloadSize * 8.) / (m_simulationTime * 1e6) << std::endl
          << "Expected data rate: " << m_flows[i].m_dataRate / 1e6 << std::endl
          << "Actual data rate: " << (m_flows[i].m_txBytes * 8.) / (m_simulationTime * 1e6)
          << std::endl
@@ -4608,4 +4610,3 @@ main (int argc, char *argv[])
 
   return 0;
 }
-
