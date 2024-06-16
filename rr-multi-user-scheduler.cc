@@ -294,8 +294,7 @@ Ptr<WifiMpdu>>> m_candidates, uint16_t ch_width, bool ul){
                 allocation.push_back(*(ruSet.begin()));
                 start_index+=1;
             }
-        }
-        
+        } 
     
     ///////////////////////////////////////   
     }else if(ch_width == 40){ //40MHz
