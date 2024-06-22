@@ -950,11 +950,13 @@ WifiOfdmaExample::GenerateTrafficFlows ()
 
 
   //original code/////
-  bool haptic = false;
+  bool haptic = false; // 5 device haptic
 
-  bool haptic_new = true;
+  bool haptic_new = false; // 15 device haptic
+ 
+  bool haptic_10 = false; // 8 device haptic
 
-  if((haptic == false) && (haptic_new == false)){
+  if((haptic == false) && (haptic_new == false) && (haptic_10 == false)){
 
   for (uint16_t staId = 1; staId <= endStaId; staId++)
     {
@@ -1011,7 +1013,7 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           // m_flows.push_back (flow);
 
           flow.m_ac = AC_BE;
-          flow.m_l4Proto = Flow::TCP;
+          flow.m_l4Proto = Flow::UDP;
           flow.m_payloadSize = m_frameSize;
           flow.m_stationId = staId;
           flow.m_dataRate = 1 * m_ulFlowDataRate * 1e6;
@@ -1185,8 +1187,158 @@ WifiOfdmaExample::GenerateTrafficFlows ()
 
 
   }
-  else if(haptic)
+  else if(haptic_10)
   {
+  
+  for (uint16_t staId = 1; staId <= endStaId; staId++)
+    {
+      Flow flow;
+      if (m_dlTraffic != "None")
+        {
+          
+          if(staId == 1 || staId == 2){ // Video call DL                                                      
+          flow.m_ac = AC_VI;
+          flow.m_l4Proto = Flow::UDP;
+          flow.m_payloadSize = 1500;
+          // flow.m_payloadSize = 2500;
+          flow.m_stationId = staId;
+          flow.m_dataRate = 3 * 1 * 1e6;
+          flow.m_direction = Flow::DOWNLINK;
+          flow.m_dstPort = dstPort++;
+          NS_LOG_DEBUG ("Adding flow " << flow);
+          std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          m_flows.push_back (flow);
+          }
+          else if(staId == 3 || staId == 4){ // Audio call DL
+          flow.m_ac = AC_VO;
+          flow.m_l4Proto = Flow::UDP;
+          flow.m_payloadSize = 160;
+          // flow.m_payloadSize = 2500;
+          flow.m_stationId = staId;
+          flow.m_dataRate =  64 * 1e3;
+          flow.m_direction = Flow::DOWNLINK;
+          flow.m_dstPort = dstPort++;
+          NS_LOG_DEBUG ("Adding flow " << flow);
+          std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          m_flows.push_back (flow);
+          }
+          else if(staId == 5 || staId == 6){ // Video streaming DL
+          flow.m_ac = AC_BE;
+          flow.m_l4Proto = Flow::UDP;
+          flow.m_payloadSize = 1500;
+          // flow.m_payloadSize = 2500;
+          flow.m_stationId = staId;
+          flow.m_dataRate = 1 * 8 * 1e6;
+          flow.m_direction = Flow::DOWNLINK;
+          flow.m_dstPort = dstPort++;
+          NS_LOG_DEBUG ("Adding flow " << flow);
+          std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          m_flows.push_back (flow);
+          }
+          else if(staId == 7){ // file download DL
+          flow.m_ac = AC_BE;
+          flow.m_l4Proto = Flow::TCP;
+          flow.m_payloadSize = 1500;
+          // flow.m_payloadSize = 2500;
+          flow.m_stationId = staId;
+          flow.m_dataRate = 8 * 1 * 1e6;
+          flow.m_direction = Flow::DOWNLINK;
+          flow.m_dstPort = dstPort++;
+          NS_LOG_DEBUG ("Adding flow " << flow);
+          std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          m_flows.push_back (flow);
+          }
+          else if(staId == 8){ // haptic control DL
+          flow.m_ac = AC_VO;
+          flow.m_l4Proto = Flow::UDP;
+          flow.m_payloadSize = 64;
+          // flow.m_payloadSize = 2500;
+          flow.m_stationId = staId;
+          flow.m_dataRate =  512*1e3; 
+          flow.m_direction = Flow::DOWNLINK;
+          flow.m_dstPort = dstPort++;
+          NS_LOG_DEBUG ("Adding flow " << flow);
+          std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          m_flows.push_back (flow);
+          }
+          
+          }
+        
+      if (m_ulTraffic != "None")
+        {
+          // Ptr<UniformRandomVariable> rate_random;
+          // rate_random = CreateObjectWithAttributes<UniformRandomVariable> ("Min", DoubleValue (0.0), "Max",
+          //
+          if(staId == 1 || staId == 2){ // video call UL                                                          
+          flow.m_ac = AC_VI;
+          flow.m_l4Proto = Flow::UDP;
+          flow.m_payloadSize = 1500;
+          // flow.m_payloadSize = 2500;
+          flow.m_stationId = staId;
+          flow.m_dataRate = 3 * 1 * 1e6;
+          flow.m_direction = Flow::UPLINK;
+          flow.m_dstPort = dstPort++;
+          NS_LOG_DEBUG ("Adding flow " << flow);
+        //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          m_flows.push_back (flow);
+          }else if(staId == 3 || staId == 4){ // audio call UL
+          flow.m_ac = AC_VO;
+          flow.m_l4Proto = Flow::UDP;
+          flow.m_payloadSize =  160;
+          // flow.m_payloadSize = 2500;
+          flow.m_stationId = staId;
+          flow.m_dataRate =  64 * 1e3;
+          flow.m_direction = Flow::UPLINK;
+          flow.m_dstPort = dstPort++;
+          NS_LOG_DEBUG ("Adding flow " << flow);
+        //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          m_flows.push_back (flow);
+          }else if(staId == 8){ // Haptic UL(Audio, video and pos)
+          flow.m_ac = AC_VO; //haptic flow 
+          flow.m_l4Proto = Flow::UDP;
+          flow.m_payloadSize = 64;
+          // flow.m_payloadSize = 2500;
+          flow.m_stationId = staId;
+          flow.m_dataRate = 64*8*1e3;
+          flow.m_direction = Flow::UPLINK;
+          flow.m_dstPort = dstPort++;
+          NS_LOG_DEBUG ("Adding flow " << flow);
+          //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          m_flows.push_back (flow);
+
+          /////////////////
+
+          flow.m_ac = AC_VI; // video 
+          flow.m_l4Proto = Flow::UDP;
+          flow.m_payloadSize = 1500;//assuming 30fps
+          // flow.m_payloadSize = 2500;
+          flow.m_stationId = staId;
+          flow.m_dataRate = 4 * 1 * 1e6;
+          flow.m_direction = Flow::UPLINK;
+          flow.m_dstPort = dstPort++;
+          NS_LOG_DEBUG ("Adding flow " << flow);
+          //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          m_flows.push_back (flow);
+
+          // //////////////////
+
+          // flow.m_ac = AC_VO; //audio
+          // flow.m_l4Proto = Flow::UDP;
+          // flow.m_payloadSize = 160;
+          // // flow.m_payloadSize = 2500;
+          // flow.m_stationId = staId;
+          // flow.m_dataRate = 64 * 1e3;
+          // flow.m_direction = Flow::UPLINK;
+          // flow.m_dstPort = dstPort++;
+          // NS_LOG_DEBUG ("Adding flow " << flow);
+          // //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          // m_flows.push_back (flow);
+          }
+        }
+          
+        }
+    }else if(haptic){
+      {
   
   for (uint16_t staId = 1; staId <= endStaId; staId++)
     {
@@ -1233,7 +1385,7 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
           m_flows.push_back (flow);
           }
-          else if(staId == 4 && false){ // file download DL
+          else if(staId == 4){ // file download DL
           flow.m_ac = AC_BE;
           flow.m_l4Proto = Flow::TCP;
           flow.m_payloadSize = 1500;
@@ -1259,21 +1411,7 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
           m_flows.push_back (flow);
           }
-          else if(staId == 6){ // haptic control DL
-          flow.m_ac = AC_VO;
-          flow.m_l4Proto = Flow::UDP;
-          flow.m_payloadSize = 64;
-          // flow.m_payloadSize = 2500;
-          flow.m_stationId = staId;
-          flow.m_dataRate =  512*1e3; 
-          flow.m_direction = Flow::DOWNLINK;
-          flow.m_dstPort = dstPort++;
-          NS_LOG_DEBUG ("Adding flow " << flow);
-          std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
-          m_flows.push_back (flow);
-          }
-
-
+          
           }
         
       if (m_ulTraffic != "None")
@@ -1334,33 +1472,22 @@ WifiOfdmaExample::GenerateTrafficFlows ()
 
           // //////////////////
 
-          flow.m_ac = AC_VO; //audio
-          flow.m_l4Proto = Flow::UDP;
-          flow.m_payloadSize = 160;
-          // flow.m_payloadSize = 2500;
-          flow.m_stationId = staId;
-          flow.m_dataRate = 64 * 1e3;
-          flow.m_direction = Flow::UPLINK;
-          flow.m_dstPort = dstPort++;
-          NS_LOG_DEBUG ("Adding flow " << flow);
-          //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
-          m_flows.push_back (flow);
+          // flow.m_ac = AC_VO; //audio
+          // flow.m_l4Proto = Flow::UDP;
+          // flow.m_payloadSize = 160;
+          // // flow.m_payloadSize = 2500;
+          // flow.m_stationId = staId;
+          // flow.m_dataRate = 64 * 1e3;
+          // flow.m_direction = Flow::UPLINK;
+          // flow.m_dstPort = dstPort++;
+          // NS_LOG_DEBUG ("Adding flow " << flow);
+          // //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
+          // m_flows.push_back (flow);
           }
-          }else if(staId == 6){ // Haptic UL(Audio, video and pos)
-          flow.m_ac = AC_VO; //haptic flow 
-          flow.m_l4Proto = Flow::UDP;
-          flow.m_payloadSize = 64;
-          // flow.m_payloadSize = 2500;
-          flow.m_stationId = staId;
-          flow.m_dataRate = 64*8*1e3;
-          flow.m_direction = Flow::UPLINK;
-          flow.m_dstPort = dstPort++;
-          NS_LOG_DEBUG ("Adding flow " << flow);
-          //   std::cout << "At time "<<Simulator::Now().GetMicroSeconds () <<" Adding flow " << flow << '\n';
-          m_flows.push_back (flow);
-          }
-
         }
+          
+        }
+    }
     }
     }
     
@@ -1534,6 +1661,7 @@ WifiOfdmaExample::Setup (void)
       phy.SetErrorRateModel ("ns3::NistErrorRateModel");
       phy.SetChannel (spectrumChannel);
       std::string channelStr("{0, " + std::to_string(m_channelWidth) + ", BAND_6GHZ, 0}");
+      // std::string channelStr("{0, " + std::to_string(m_channelWidth) + ", BAND_5GHZ, 0}");
       // channelStr += "BAND_6GHZ, 0}";
 
       // phy.set("channelWidth", )
@@ -2255,8 +2383,10 @@ WifiOfdmaExample::PrintResults (std::ostream &os)
     double aggr_lat_ul = 0;
     uint32_t aggr_dl_pkt = 0;
     uint32_t aggr_ul_pkt = 0;
+    uint16_t ul_flows = 0;
+    uint16_t dl_flows = 0;
         
-        for (std::size_t i = 0; i < m_flows.size (); i++)
+    for (std::size_t i = 0; i < m_flows.size (); i++)
     {
         double avglat = 0;
         size_t count = 0;
@@ -2268,13 +2398,21 @@ WifiOfdmaExample::PrintResults (std::ostream &os)
 
       os << "FLOW " << m_flows[i] << std::endl;
       if(m_flows[i].m_direction == Flow::DOWNLINK){
+
         aggr_thr_dl += (m_flows[i].m_rxPackets*m_flows[i].m_payloadSize * 8.) / (m_simulationTime * 1e6);
-        aggr_lat_dl += avglat/double(count);
+        if(m_flows[i].m_l4Proto == Flow::UDP){
+          dl_flows++;
+          aggr_lat_dl += avglat/double(count);
+          }
+
         // aggr_dl_pkt += (m_flows[i].m_rxBytes)/(1610);
         aggr_dl_pkt += m_flows[i].m_rxPackets;
       }else{
         aggr_thr_ul += (m_flows[i].m_rxPackets*m_flows[i].m_payloadSize * 8.) / (m_simulationTime * 1e6);
-        aggr_lat_ul += avglat/double(count);
+        if(m_flows[i].m_l4Proto == Flow::UDP){
+          ul_flows++;
+          aggr_lat_ul += avglat/double(count);
+        }
         // aggr_ul_pkt += (m_flows[i].m_rxBytes)/(1610);
         aggr_ul_pkt += m_flows[i].m_rxPackets;
       }
@@ -2300,8 +2438,8 @@ WifiOfdmaExample::PrintResults (std::ostream &os)
     os << std::fixed << std::setprecision (3)
          << "Aggregate DL Throughput: " << aggr_thr_dl << std::endl
          << "Aggregate UL Throughput: " << aggr_thr_ul << std::endl
-         << "Average DL Latency: " << aggr_lat_dl/m_nStations << std::endl
-         << "Average UL Latency: " << aggr_lat_ul/m_nStations << std::endl
+         << "Average DL Latency: " << aggr_lat_dl/dl_flows << std::endl
+         << "Average UL Latency: " << aggr_lat_ul/ul_flows << std::endl
          << "Total received DL Packets: " << aggr_dl_pkt << std::endl
          << "Total received UL Packets: " << aggr_ul_pkt << std::endl;
 
@@ -2321,8 +2459,8 @@ WifiOfdmaExample::PrintResults (std::ostream &os)
         
         for (std::size_t i = 0; i < m_flows.size (); i++)
     {
-      if(m_flows[i].m_direction == Flow::DOWNLINK) dl_size++;
-      if(m_flows[i].m_direction == Flow::UPLINK) ul_size++;
+      if(m_flows[i].m_direction == Flow::DOWNLINK && m_flows[i].m_l4Proto == Flow::UDP) dl_size++;
+      if(m_flows[i].m_direction == Flow::UPLINK && m_flows[i].m_l4Proto == Flow::UDP) ul_size++;
         double avglat = 0;
         uint32_t count = 0;
         count = m_flows[i].m_latency.m_samples.size();
