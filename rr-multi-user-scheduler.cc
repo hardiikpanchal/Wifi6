@@ -63,7 +63,9 @@ ns3::Time basic_start = TimeStep(0);
 bool bsrp_limit = false;
 int count = 10;
 
-bool prop_scheduler = false;
+bool prop_scheduler = true;
+
+Time ul_time = Seconds(0);
 
 
 TypeId
@@ -168,10 +170,12 @@ Ptr<WifiMpdu>>> m_candidates, uint16_t ch_width, bool ul){
     if(ch_width == 20){ // 20MHz
         int total_width = 9;
 
+        std::cout << "queue normal: ";
         for (int i = 0; i < int(queue_array.size()); i++)
         {
-            queue_array[i] = int((queue_array[i]/queue_sum)*total_width);   
-        }
+            queue_array[i] = int((queue_array[i]/queue_sum)*total_width);
+            std::cout << queue_array[i] << " ";   
+        }std::cout << "\n";
 
         int ru_106 = 0;
         int ru_52 = 0;
@@ -256,12 +260,20 @@ Ptr<WifiMpdu>>> m_candidates, uint16_t ch_width, bool ul){
 
                 }
             }
+        std::cout << "RU array after first correction and before allocation: ";
+        for (int i = 0; i < int(ru_array.size()); i++)
+        {
+            std::cout << ru_array[i] << " ";
+        }std::cout << "\n";
+        
         
         int start_index = 1;    
         for (int i = 0; i < int(ru_array.size()); i++)
         {
             if(start_index > 9){
-                break;
+                if(ru_array[i] != 26){
+                    break;
+                }
             }
             if(ru_array[i] == 242){
                 if(start_index == 5) start_index++;
@@ -288,14 +300,21 @@ Ptr<WifiMpdu>>> m_candidates, uint16_t ch_width, bool ul){
                 auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_52_TONE, final_index, true);
                 allocation.push_back(*(ruSet.begin()));
                 start_index+=2;
-            }else if(ru_array[i] == 26){
+            }else{
+                std::cout << "knadsmcjwx" << "\n";
+                if(i == (int(ru_array.size()) -1)){
+                    std::cout << "YESSS" << "\n";
+                    auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_26_TONE, 5, true);
+                    allocation.push_back(*(ruSet.begin()));
+                }else{
                 if(start_index + 1 > 10) break;
                 auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_26_TONE, start_index, true);
                 allocation.push_back(*(ruSet.begin()));
                 start_index+=1;
+                }
             }
-        } 
-    
+        }
+        
     ///////////////////////////////////////   
     }else if(ch_width == 40){ //40MHz
         int total_width = 18;
@@ -432,11 +451,16 @@ Ptr<WifiMpdu>>> m_candidates, uint16_t ch_width, bool ul){
 
                 }
             }
-        int start_index = 1;    
+        int start_index = 1; 
+        bool index_14 = false;
+        bool index_5 = false;   
         for (int i = 0; i < int(ru_array.size()); i++)
         {
             if(start_index > 18){
-                break;
+                if(ru_array[i] != 26){
+                    break;
+                }
+                
             }
             if(ru_array[i] == 484){
                 if(start_index == 5 || start_index == 14) start_index++;
@@ -480,10 +504,28 @@ Ptr<WifiMpdu>>> m_candidates, uint16_t ch_width, bool ul){
                 allocation.push_back(*(ruSet.begin()));
                 start_index+=2;
             }else if(ru_array[i] == 26){
+                if(i == (int(ru_array.size()) -1) || i == (int(ru_array.size()) -2)){
+                    std::cout << "YESSS" << "\n";
+                    int index_26tone = 5;
+                    if(index_5 == false || index_14 == false){
+                    if(index_5 == true){
+                        index_26tone = 14;
+                        index_14 = true;
+                    }else{
+                        index_5 = true;
+                    }
+                    auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_26_TONE, index_26tone, true);
+                    allocation.push_back(*(ruSet.begin()));
+                    }
+                    else{
+                        break;
+                    }
+                }else{
                 if(start_index + 1 > 19) break;
                 auto ruSet = HeRu::GetRusOfType(m_apMac->GetWifiPhy()->GetChannelWidth(), HeRu::RU_26_TONE, start_index, true);
                 allocation.push_back(*(ruSet.begin()));
                 start_index+=1;
+                }
             }
         }
     ///////////////////////////////////
@@ -1366,13 +1408,47 @@ RrMultiUserScheduler::TrySendingBasicTf()
     Time bufferTxTime = Seconds(0);
     for (const auto& userInfo : m_trigger)
     {
-        Time duration = WifiPhy::CalculateTxDuration(maxBufferSize,
+        auto address = m_apMac->GetMldOrLinkAddressByAid(userInfo.GetAid12());
+        uint8_t queueSize = m_apMac->GetMaxBufferStatus(*address);
+        Time duration = Seconds(0);
+        
+        if(prop_scheduler){
+        uint32_t buffer_queue = 0;
+        if(queueSize == 255){
+            buffer_queue = m_ulPsduSize;
+        }else{
+            buffer_queue = queueSize*256;
+        }
+        duration = WifiPhy::CalculateTxDuration(maxBufferSize,
                                                      txVector,
                                                      m_apMac->GetWifiPhy(m_linkId)->GetPhyBand(),
                                                      userInfo.GetAid12());
+        }else{
+        // uint32_t buffer_queue = 0;
+        // if(queueSize == 255){
+        //     buffer_queue = m_ulPsduSize;
+        // }else{
+        //     buffer_queue = queueSize*256;
+        // }
+        duration = WifiPhy::CalculateTxDuration(maxBufferSize,
+                                                     txVector,
+                                                     m_apMac->GetWifiPhy(m_linkId)->GetPhyBand(),
+                                                     userInfo.GetAid12()); 
+        // Time maxbufduration = WifiPhy::CalculateTxDuration(maxBufferSize,
+        //                                              txVector,
+        //                                              m_apMac->GetWifiPhy(m_linkId)->GetPhyBand(),
+        //                                              userInfo.GetAid12());
+        // std::cout << "maxbuffduration: "<< maxbufduration << "\n"; 
+        }
+        
+        std::cout << "For station with AID: " << userInfo.GetAid12() <<" needs duration: "<< duration << "\n";
         bufferTxTime = Max(bufferTxTime, duration);
+        std::cout << "buffertxtime: "<< bufferTxTime << "\n";
     }
+    
+    
 
+        
     if (bufferTxTime < maxDuration)
     {
         // the maximum buffer size can be transmitted within the allowed time
@@ -1403,6 +1479,8 @@ RrMultiUserScheduler::TrySendingBasicTf()
         }
     }
 
+    ul_time = ul_time + maxDuration;
+    std::cout << "total UL time till now: "<< ul_time << "\n";
     // maxDuration is the time to grant to the stations. Finalize the Trigger Frame
     uint16_t ulLength;
     std::tie(ulLength, maxDuration) =
