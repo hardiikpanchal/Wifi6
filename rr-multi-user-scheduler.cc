@@ -1419,7 +1419,7 @@ RrMultiUserScheduler::TrySendingBasicTf()
         }else{
             buffer_queue = queueSize*256;
         }
-        duration = WifiPhy::CalculateTxDuration(maxBufferSize,
+        duration = WifiPhy::CalculateTxDuration(buffer_queue,
                                                      txVector,
                                                      m_apMac->GetWifiPhy(m_linkId)->GetPhyBand(),
                                                      userInfo.GetAid12());
