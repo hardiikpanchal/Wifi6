@@ -950,7 +950,7 @@ WifiOfdmaExample::GenerateTrafficFlows ()
 
 
   //original code/////
-  bool haptic = false; // 5 device haptic
+  bool haptic = true; // 5 device haptic
 
   bool haptic_new = false; // 15 device haptic
  
@@ -983,7 +983,6 @@ WifiOfdmaExample::GenerateTrafficFlows ()
           // NS_LOG_DEBUG ("Adding flow " << flow);
           // m_flows.push_back (flow);
 
-          
         }
       if (m_ulTraffic != "None")
         {
@@ -2390,11 +2389,19 @@ WifiOfdmaExample::PrintResults (std::ostream &os)
     {
         double avglat = 0;
         size_t count = 0;
+        double stdeviation = 0;
         count = m_flows[i].m_latency.m_samples.size();
         for (auto it = m_flows[i].m_latency.m_samples.begin (); it != m_flows[i].m_latency.m_samples.end(); ++it)
         {
           avglat += *it;
         }
+        double latmean = avglat/double(count);
+        for (auto it = m_flows[i].m_latency.m_samples.begin (); it != m_flows[i].m_latency.m_samples.end(); ++it)
+        {
+          stdeviation += ((*it-latmean)*(*it-latmean));
+        }
+        stdeviation = sqrt(stdeviation/double(count));
+        
 
       os << "FLOW " << m_flows[i] << std::endl;
       if(m_flows[i].m_direction == Flow::DOWNLINK){
@@ -2428,7 +2435,8 @@ WifiOfdmaExample::PrintResults (std::ostream &os)
       
       os << std::fixed << std::setprecision (3)
          << "Throughput: " << (rcv * 8.) / (m_simulationTime * 1e6)
-         << " Latency: " << avglat/double(count) << " Count :" << count << std::endl;
+         << " Latency: " << avglat/double(count) << " Count :" << count
+         << " Latency std: " << stdeviation << "\n";
         
         //  << "Latency: " << m_flows[i].m_latency << std::endl
         //  << std::endl;
@@ -2456,18 +2464,29 @@ WifiOfdmaExample::PrintResults (std::ostream &os)
     uint32_t aggr_ul_pkt = 0;
     int ul_size = 0;
     int dl_size = 0;
+    double stdeviationul_aggr = 0;
+    double stdeviationdl_aggr = 0;
         
         for (std::size_t i = 0; i < m_flows.size (); i++)
     {
       if(m_flows[i].m_direction == Flow::DOWNLINK && m_flows[i].m_l4Proto == Flow::UDP) dl_size++;
       if(m_flows[i].m_direction == Flow::UPLINK && m_flows[i].m_l4Proto == Flow::UDP) ul_size++;
+
+        
         double avglat = 0;
-        uint32_t count = 0;
-        count = m_flows[i].m_latency.m_samples.size();
+        double stdeviation = 0;
+        double count = m_flows[i].m_latency.m_samples.size();
         for (auto it = m_flows[i].m_latency.m_samples.begin (); it != m_flows[i].m_latency.m_samples.end(); ++it)
         {
           avglat += *it;
         }
+        double latmean = avglat/double(count);
+        for (auto it = m_flows[i].m_latency.m_samples.begin (); it != m_flows[i].m_latency.m_samples.end(); ++it)
+        {
+          stdeviation += ((*it-latmean)*(*it-latmean));
+        }
+        stdeviation = sqrt(stdeviation/double(count));
+      
 
       os << "FLOW " << m_flows[i] << std::endl;
       if(m_flows[i].m_direction == Flow::DOWNLINK){
@@ -2485,20 +2504,28 @@ WifiOfdmaExample::PrintResults (std::ostream &os)
       
       os << std::fixed << std::setprecision (3)
          << "Throughput: " << (m_flows[i].m_rxPackets*m_flows[i].m_payloadSize * 8.) / (m_simulationTime * 1e6)
-         << " Latency: " << avglat/double(count) << " Count :" << count << std::endl;
-         
+         << " Latency: " << avglat/double(count) << " Count :" << count 
+         << " Latency std: " << stdeviation << "\n";
+        
         //  << "Latency: " << m_flows[i].m_latency << std::endl
         //  << std::endl;
-         
+        if(m_flows[i].m_direction == Flow::DOWNLINK){
+          stdeviationdl_aggr += stdeviation;
+        } else{
+          stdeviationul_aggr += stdeviation;
+        }        
     }
 
     os << std::fixed << std::setprecision (3)
          << "Aggregate DL Throughput: " << aggr_thr_dl << std::endl
          << "Aggregate UL Throughput: " << aggr_thr_ul << std::endl
          << "Average DL Latency: " << aggr_lat_dl/dl_size << std::endl
+         << "Average DL Latency std: " << stdeviationdl_aggr/dl_size << std::endl
          << "Average UL Latency: " << aggr_lat_ul/ul_size << std::endl
+         << "Average UL Latency std: " << stdeviationul_aggr/ul_size << std::endl
          << "Total received DL Packets: " << aggr_dl_pkt << std::endl
          << "Total received UL Packets: " << aggr_ul_pkt << std::endl;
+
 // ///////////////////////////////////////
 
 
