@@ -950,9 +950,9 @@ WifiOfdmaExample::GenerateTrafficFlows ()
 
 
   //original code/////
-  bool haptic = true; // 5 device haptic
+  bool haptic = false; // 5 device haptic
 
-  bool haptic_new = false; // 15 device haptic
+  bool haptic_new = true; // 15 device haptic
  
   bool haptic_10 = false; // 8 device haptic
 
