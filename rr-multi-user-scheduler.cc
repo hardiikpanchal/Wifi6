@@ -63,7 +63,7 @@ ns3::Time basic_start = TimeStep(0);
 bool bsrp_limit = false;
 int count = 10;
 
-bool prop_scheduler = true;
+bool prop_scheduler = false;
 
 Time ul_time = Seconds(0);
 
